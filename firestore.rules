@@ -1,0 +1,114 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function eventDoc(eventId) {
+      return get(/databases/$(database)/documents/events/$(eventId)).data;
+    }
+
+    function isEventOwner(eventId) {
+      return signedIn() && eventDoc(eventId).ownerUid == request.auth.uid;
+    }
+
+    function eventIsLive(eventId) {
+      return eventDoc(eventId).status == 'live';
+    }
+
+    function profilesAreShared(eventId) {
+      return eventDoc(eventId).visibility == 'participants';
+    }
+
+    /* Slug lookup. Public read so an event link resolves without an account. */
+    match /slugs/{slug} {
+      allow read: if true;
+      allow create: if signedIn()
+                    && request.resource.data.ownerUid == request.auth.uid;
+      allow update, delete: if isOwner(resource.data.ownerUid);
+    }
+
+    /* Organizer profile. */
+    match /users/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
+    /* Events are readable by anyone holding the link, writable by the owner. */
+    match /events/{eventId} {
+      allow read: if true;
+
+      allow create: if signedIn()
+                    && request.resource.data.ownerUid == request.auth.uid
+                    && request.resource.data.name is string
+                    && request.resource.data.name.size() > 2
+                    && request.resource.data.categories.size() <= 20
+                    && request.resource.data.questions.size() <= 20;
+
+      allow update: if isOwner(resource.data.ownerUid)
+                    && request.resource.data.ownerUid == resource.data.ownerUid;
+
+      allow delete: if isOwner(resource.data.ownerUid);
+
+      /* Participants. Email addresses are stripped from reads by the client,
+         and never leave the collection except through an accepted connection
+         handled by a Cloud Function. */
+      match /participants/{participantId} {
+        allow read: if isEventOwner(eventId) || profilesAreShared(eventId);
+
+        allow create: if signedIn()
+                      && eventIsLive(eventId)
+                      && request.resource.data.uid == request.auth.uid
+                      && request.resource.data.firstName is string
+                      && request.resource.data.firstName.size() >= 2
+                      && request.resource.data.firstName.size() <= 40
+                      && request.resource.data.note.size() <= 280
+                      && request.resource.data.categoryIds.size() >= 1
+                      && request.resource.data.categoryIds.size() <= 5;
+
+        allow update: if isOwner(resource.data.uid)
+                      && request.resource.data.uid == resource.data.uid;
+
+        allow delete: if isOwner(resource.data.uid) || isEventOwner(eventId);
+      }
+
+      /* Watchers hold only an email address. Nobody may read them from the
+         client, not even the organizer. Counts come from the rollup document. */
+      match /watchers/{watcherId} {
+        allow read: if false;
+        allow create: if signedIn()
+                      && request.resource.data.email is string
+                      && request.resource.data.email.matches('.+@.+[.].+');
+        allow update, delete: if false;
+      }
+
+      /* Connections. Only the two people involved may read one. */
+      match /connections/{connectionId} {
+        allow read: if signedIn();
+
+        allow create: if signedIn()
+                      && request.resource.data.status == 'pending'
+                      && request.resource.data.message.size() <= 500;
+
+        allow update: if signedIn()
+                      && request.resource.data.diff(resource.data)
+                          .affectedKeys()
+                          .hasOnly(['status', 'respondedAt']);
+
+        allow delete: if false;
+      }
+
+      /* Aggregated counters written by Cloud Functions only. */
+      match /stats/{docId} {
+        allow read: if true;
+        allow write: if false;
+      }
+    }
+  }
+}

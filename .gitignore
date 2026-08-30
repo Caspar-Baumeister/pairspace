@@ -1,0 +1,16 @@
+node_modules
+.next
+out
+.env
+.env.local
+.env*.local
+.firebase
+.emulator-data
+*.log
+.DS_Store
+next-env.d.ts
+functions/lib
+functions/node_modules
+serviceAccount.json
+tsconfig.tsbuildinfo
+.firebaserc
