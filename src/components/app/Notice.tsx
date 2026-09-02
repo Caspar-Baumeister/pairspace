@@ -8,7 +8,7 @@ export function Notice({
   children: React.ReactNode;
 }) {
   const tones = {
-    info: { bg: "var(--color-blue-soft)", fg: "var(--color-blue)", border: "var(--color-blue-line)" },
+    info: { bg: "var(--color-accent-soft)", fg: "var(--color-accent)", border: "var(--color-accent-line)" },
     warning: { bg: "var(--color-warning-soft)", fg: "var(--color-warning)", border: "#F1DCBB" },
     danger: { bg: "var(--color-danger-soft)", fg: "var(--color-danger)", border: "#F5C9C4" },
     positive: { bg: "var(--color-positive-soft)", fg: "var(--color-positive)", border: "#BFE3CD" },

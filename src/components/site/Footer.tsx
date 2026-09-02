@@ -43,7 +43,7 @@ export function Footer() {
           <circle cx="430" cy="420" r="180" stroke="var(--color-line)" />
           <circle cx="430" cy="420" r="290" stroke="var(--color-line)" />
           <circle cx="430" cy="420" r="400" stroke="var(--color-line)" />
-          <path d="M250 420a180 180 0 0 1 90 -156" stroke="#2B4EF0" strokeOpacity="0.22" strokeWidth="1.5" />
+          <path d="M250 420a180 180 0 0 1 90 -156" stroke="#0D8A5E" strokeOpacity="0.22" strokeWidth="1.5" />
         </svg>
       </div>
 
@@ -69,7 +69,7 @@ export function Footer() {
                 <li key={l.label}>
                   <Link
                     href={l.href}
-                    className="text-[0.875rem] text-ink-secondary transition-colors hover:text-blue"
+                    className="text-[0.875rem] text-ink-secondary transition-colors hover:text-accent"
                   >
                     {l.label}
                   </Link>

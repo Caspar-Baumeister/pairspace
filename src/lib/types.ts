@@ -52,6 +52,14 @@ export interface PairspaceEvent {
   questions: EventQuestion[];
   /** Participants may show their first name and their answers to other participants. */
   visibility: "participants" | "organizerOnly";
+  /**
+   * Participants may upload a photo of themselves. Off by default, because an
+   * illustrated portrait is enough for most events and asking for a face photo
+   * raises the bar to join.
+   */
+  allowPhotos: boolean;
+  /** A photo is required rather than optional. Only meaningful with allowPhotos. */
+  requirePhotos: boolean;
   status: EventStatus;
   /** Profiles are deleted this many days after the event ends. */
   retentionDays: number;
@@ -82,6 +90,10 @@ export interface Participant {
   lookingForIds: string[];
   answers: ParticipantAnswer[];
   note: string;
+  /** Download URL of the uploaded photo, when the event allows photos. */
+  photoUrl: string | null;
+  /** Storage path, kept so the photo can be deleted with the profile. */
+  photoPath: string | null;
   /** Never shown to other participants. Only released through an accepted connection. */
   email: string;
   emailVerified: boolean;
@@ -140,6 +152,8 @@ export interface EventDraft {
   categories: EventCategory[];
   questions: EventQuestion[];
   visibility: PairspaceEvent["visibility"];
+  allowPhotos: boolean;
+  requirePhotos: boolean;
   retentionDays: number;
 }
 

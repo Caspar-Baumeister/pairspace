@@ -15,6 +15,9 @@ Not dating. Not a social network. Not event management software.
   Cloud Functions for email, Scheduler for data retention
 * Deploys to Firebase App Hosting (`apphosting.yaml`) or Vercel (`vercel.json`)
 
+> **Setting this up for the first time?** Follow [SETUP.md](./SETUP.md). It is one
+> script plus a handful of console clicks.
+
 ## Getting started
 
 ```bash
@@ -42,17 +45,37 @@ Set `NEXT_PUBLIC_USE_EMULATORS=1` in `.env.local` to point the app at the emulat
    (participants use an anonymous session so they can edit their own profile without a password).
 3. Add your domain under Authentication, Settings, Authorized domains.
 4. Firestore: create the database, then `firebase deploy --only firestore:rules,firestore:indexes`.
-5. Functions: `cd functions && npm install`, then
+5. Storage: enable Cloud Storage, then `firebase deploy --only storage` for `storage.rules`.
+6. Functions: `cd functions && npm install`, then
    `firebase functions:secrets:set RESEND_API_KEY` and `firebase deploy --only functions`.
    Set `MAIL_FROM` and `SITE_URL` as function environment values.
-6. Apple sign in additionally needs a Services ID, a key and the return URL in the Apple developer
+7. Apple sign in additionally needs a Services ID, a key and the return URL in the Apple developer
    console. Google works out of the box.
+
+## Avatars
+
+Every participant gets a portrait, never an initial. `npm run avatars` pre renders a pool of
+48 illustrated faces plus the 8 named faces used on the landing page into `public/avatars`
+(Open Peeps by Pablo Stanley, CC0, rendered through DiceBear). The app picks one from the pool
+by hashing the participant id, so a person keeps the same face for the whole event and the
+avatar library never ships in the JavaScript bundle.
+
+Organizers can additionally allow, or require, real photos per event. Photos are cropped square
+and shrunk to 640 pixels in the browser before upload, stored as WebP under
+`events/{eventId}/participants/{uid}.webp`, and deleted with the rest of the event data.
+
+## Forms never lose input
+
+Every form autosaves to local storage while it is being filled in: the event wizard including the
+current step, the participant profile, and the notify me form. Reloading restores everything and
+the participant sees a small note that their draft came back. Storage is cleared on a successful
+submit. The hook is `src/lib/hooks/usePersistentState.ts`.
 
 ## Data model
 
 ```
 events/{eventId}                       public read, owner write
-  participants/{participantId}         first name, categories, answers, hidden email
+  participants/{participantId}         first name, categories, answers, photo, hidden email
   watchers/{watcherId}                 email only, never readable from the client
   connections/{connectionId}           a contact exchange between two participants
 slugs/{slug}                           public slug to eventId lookup

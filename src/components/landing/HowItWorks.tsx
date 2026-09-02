@@ -30,7 +30,7 @@ const steps = [
 
 export function HowItWorks() {
   return (
-    <section id="how-it-works" className="relative px-6 py-24 sm:py-32">
+    <section id="how-it-works" className="relative overflow-x-clip px-6 py-24 sm:py-32">
       <Reveal className="mx-auto max-w-[820px] text-center">
         <p className="eyebrow">Built around one real event</p>
         <h2 className="display-l mt-4 text-balance">
@@ -52,9 +52,9 @@ export function HowItWorks() {
                   i % 2 === 1 ? "lg:[&>*:first-child]:order-2" : ""
                 }`}
               >
-                <div>
+                <div className="min-w-0">
                   <p
-                    className="tnum text-[0.9375rem] font-semibold text-blue"
+                    className="tnum text-[0.9375rem] font-semibold text-accent"
                     style={{ fontFamily: "var(--font-display)" }}
                   >
                     {s.n}
@@ -68,19 +68,19 @@ export function HowItWorks() {
                   </p>
                   <p className="mt-6 flex items-start gap-2.5 text-[0.875rem] text-ink-faint">
                     <span
-                      className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-blue"
+                      className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-accent"
                       aria-hidden="true"
                     />
                     {s.aside}
                   </p>
                 </div>
-                <div className="relative">
+                <div className="relative min-w-0">
                   <div
                     aria-hidden="true"
                     className="pointer-events-none absolute -inset-16 -z-10"
                     style={{
                       background:
-                        "radial-gradient(closest-side, rgba(43,78,240,0.07), rgba(43,78,240,0))",
+                        "radial-gradient(closest-side, rgba(13,138,94,0.07), rgba(13,138,94,0))",
                     }}
                   />
                   {s.mock}

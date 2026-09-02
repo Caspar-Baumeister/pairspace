@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase-admin/app";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
 import { onDocumentCreated, onDocumentUpdated, onDocumentDeleted } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { setGlobalOptions } from "firebase-functions/v2";
@@ -234,6 +235,15 @@ export const cleanupExpiredEvents = onSchedule("every day 03:00", async () => {
 
     const expiresAt = new Date(endDate).getTime() + retentionDays * 86400000;
     if (expiresAt > now) continue;
+
+    // Uploaded photos go with the profiles they belong to.
+    try {
+      await getStorage()
+        .bucket()
+        .deleteFiles({ prefix: `events/${eventDoc.id}/participants/` });
+    } catch (error) {
+      console.error("Could not delete photos for", eventDoc.id, error);
+    }
 
     for (const sub of ["participants", "watchers", "connections"]) {
       const docs = await eventDoc.ref.collection(sub).get();

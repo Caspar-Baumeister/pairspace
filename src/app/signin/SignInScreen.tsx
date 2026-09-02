@@ -31,7 +31,7 @@ export function SignInScreen() {
 
         <p className="mt-8 text-[0.875rem] text-ink-muted">
           No event yet?{" "}
-          <Link href="/create" className="font-medium text-blue hover:underline">
+          <Link href="/create" className="font-medium text-accent hover:underline">
             Create one in two minutes
           </Link>
           .

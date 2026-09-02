@@ -16,7 +16,7 @@ export function Stepper({
                 className="h-[3px] rounded-full transition-colors duration-300"
                 style={{
                   background:
-                    state === "todo" ? "var(--color-line)" : "var(--color-blue)",
+                    state === "todo" ? "var(--color-line)" : "var(--color-accent)",
                   opacity: state === "current" ? 1 : state === "done" ? 0.45 : 1,
                 }}
               />

@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
+import { PhotoField, type PhotoSelection } from "@/components/app/PhotoField";
+import { usePersistentState } from "@/lib/hooks/usePersistentState";
 import type { EventQuestion, PairspaceEvent, Participant, ParticipantAnswer } from "@/lib/types";
 
 export interface ParticipantFormValue {
@@ -12,6 +14,10 @@ export interface ParticipantFormValue {
   note: string;
   email: string;
   notifyOnMatch: boolean;
+}
+
+export interface ParticipantSubmission extends ParticipantFormValue {
+  photo: PhotoSelection;
 }
 
 function emptyValue(): ParticipantFormValue {
@@ -34,23 +40,41 @@ export function ParticipantForm({
 }: {
   event: PairspaceEvent;
   existing?: Participant | null;
-  onSubmit: (value: ParticipantFormValue) => void | Promise<void>;
+  onSubmit: (value: ParticipantSubmission) => void | Promise<void>;
   busy?: boolean;
 }) {
-  const [value, setValue] = useState<ParticipantFormValue>(
-    existing
-      ? {
-          firstName: existing.firstName,
-          categoryIds: existing.categoryIds,
-          lookingForIds: existing.lookingForIds,
-          answers: existing.answers,
-          note: existing.note,
-          email: existing.email,
-          notifyOnMatch: existing.notifyOnMatch,
-        }
-      : emptyValue(),
+  // While editing an existing profile the source of truth is the record, not a
+  // draft, so persistence is only enabled for a first time join.
+  const isNew = !existing;
+  const [value, setValue, { restored, clear }] = usePersistentState<ParticipantFormValue>(
+    `pairspace.participant.${event.id}`,
+    emptyValue(),
+    { enabled: isNew },
   );
+  const [photo, setPhoto] = useState<PhotoSelection>({
+    blob: null,
+    preview: existing?.photoUrl ?? null,
+    removed: false,
+  });
   const [touched, setTouched] = useState(false);
+  const [noticeVisible, setNoticeVisible] = useState(false);
+
+  useEffect(() => {
+    if (!existing) return;
+    setValue({
+      firstName: existing.firstName,
+      categoryIds: existing.categoryIds,
+      lookingForIds: existing.lookingForIds,
+      answers: existing.answers,
+      note: existing.note,
+      email: existing.email,
+      notifyOnMatch: existing.notifyOnMatch,
+    });
+  }, [existing, setValue]);
+
+  useEffect(() => {
+    if (restored) setNoticeVisible(true);
+  }, [restored]);
 
   function toggle(list: "categoryIds" | "lookingForIds", id: string) {
     setValue((v) => {
@@ -62,7 +86,7 @@ export function ParticipantForm({
   function answerFor(q: EventQuestion): string[] {
     const found = value.answers.find((a) => a.questionId === q.id);
     if (!found) return [];
-    return Array.isArray(found.value) ? found.value : [found.value];
+    return Array.isArray(found.value) ? found.value : found.value ? [found.value] : [];
   }
 
   function setAnswer(q: EventQuestion, next: string | string[]) {
@@ -79,21 +103,52 @@ export function ParticipantForm({
     .filter((q) => q.required)
     .filter((q) => answerFor(q).length === 0);
 
+  const photoMissing =
+    event.allowPhotos && event.requirePhotos && !photo.preview && !existing?.photoUrl;
+
   const valid =
     value.firstName.trim().length >= 2 &&
     value.categoryIds.length > 0 &&
     /.+@.+\..+/.test(value.email) &&
-    missingRequired.length === 0;
+    missingRequired.length === 0 &&
+    !photoMissing;
 
   return (
     <form
       className="space-y-7"
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
         setTouched(true);
-        if (valid) void onSubmit(value);
+        if (!valid) return;
+        await onSubmit({ ...value, photo });
+        if (isNew) clear();
       }}
     >
+      {noticeVisible ? (
+        <div className="flex items-start gap-3 rounded-xl border border-accent-line bg-accent-soft px-4 py-3">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="mt-[3px] shrink-0" aria-hidden="true">
+            <circle cx="8" cy="8" r="7.25" stroke="var(--color-accent)" />
+            <path d="M8 4.6v4.2M8 11.1v.6" stroke="var(--color-accent)" strokeWidth="1.4" strokeLinecap="round" />
+          </svg>
+          <div className="flex-1">
+            <p className="text-[0.875rem] text-ink-secondary">
+              We brought back what you had already filled in.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="text-[0.8125rem] text-accent hover:underline"
+            onClick={() => {
+              clear();
+              setValue(emptyValue());
+              setNoticeVisible(false);
+            }}
+          >
+            Start over
+          </button>
+        </div>
+      ) : null}
+
       <div>
         <label className="label" htmlFor="firstName">
           Your first name
@@ -105,11 +160,22 @@ export function ParticipantForm({
           onChange={(e) => setValue((v) => ({ ...v, firstName: e.target.value }))}
           placeholder="Maya"
           maxLength={40}
+          autoComplete="given-name"
         />
         <p className="mt-1.5 text-[0.8125rem] text-ink-faint">
           Only your first name is shown to other participants.
         </p>
       </div>
+
+      {event.allowPhotos ? (
+        <PhotoField
+          name={value.firstName}
+          seed={existing?.id ?? `${event.id}:${value.firstName || "you"}`}
+          currentUrl={existing?.photoUrl}
+          required={event.requirePhotos}
+          onChange={setPhoto}
+        />
+      ) : null}
 
       <div>
         <p className="label">I am</p>
@@ -149,7 +215,7 @@ export function ParticipantForm({
         <div key={q.id}>
           <label className="label" htmlFor={`q-${q.id}`}>
             {q.label}
-            {q.required ? <span className="ml-1 text-blue">required</span> : null}
+            {q.required ? <span className="ml-1 text-accent">required</span> : null}
           </label>
           {q.type === "text" ? (
             <textarea
@@ -174,10 +240,7 @@ export function ParticipantForm({
                       if (q.type === "single") setAnswer(q, selected ? "" : o);
                       else {
                         const current = answerFor(q);
-                        setAnswer(
-                          q,
-                          selected ? current.filter((x) => x !== o) : [...current, o],
-                        );
+                        setAnswer(q, selected ? current.filter((x) => x !== o) : [...current, o]);
                       }
                     }}
                   >
@@ -187,9 +250,7 @@ export function ParticipantForm({
               })}
             </div>
           )}
-          {q.helpText ? (
-            <p className="mt-1.5 text-[0.8125rem] text-ink-faint">{q.helpText}</p>
-          ) : null}
+          {q.helpText ? <p className="mt-1.5 text-[0.8125rem] text-ink-faint">{q.helpText}</p> : null}
         </div>
       ))}
 
@@ -219,6 +280,7 @@ export function ParticipantForm({
           value={value.email}
           onChange={(e) => setValue((v) => ({ ...v, email: e.target.value }))}
           placeholder="you@example.com"
+          autoComplete="email"
         />
         <p className="mt-1.5 text-[0.8125rem] text-ink-faint">
           Hidden from everyone. It is shared only with a person you both agreed to connect with.
@@ -228,7 +290,7 @@ export function ParticipantForm({
       <label className="flex items-start gap-3">
         <input
           type="checkbox"
-          className="mt-1 h-4 w-4 accent-[var(--color-blue)]"
+          className="mt-1 h-4 w-4 accent-[var(--color-accent)]"
           checked={value.notifyOnMatch}
           onChange={(e) => setValue((v) => ({ ...v, notifyOnMatch: e.target.checked }))}
         />
@@ -240,14 +302,23 @@ export function ParticipantForm({
       {touched && !valid ? (
         <p className="text-[0.875rem] text-danger">
           Please add your name, at least one category, a valid email address
-          {missingRequired.length ? ` and answer ${missingRequired.map((q) => q.label).join(", ")}` : ""}
-          .
+          {missingRequired.length
+            ? `, answer ${missingRequired.map((q) => q.label).join(", ")}`
+            : ""}
+          {photoMissing ? " and upload a photo" : ""}.
         </p>
       ) : null}
 
       <button type="submit" className="btn btn-primary w-full" disabled={busy}>
         {busy ? "Saving" : existing ? "Save changes" : "Join this event"}
       </button>
+
+      {isNew ? (
+        <p className="text-center text-[0.8125rem] text-ink-faint">
+          Your answers are kept in this browser while you fill them in, so a reload never loses
+          them.
+        </p>
+      ) : null}
     </form>
   );
 }

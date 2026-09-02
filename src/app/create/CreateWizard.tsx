@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AppShell } from "@/components/app/AppShell";
 import { CategoryEditor } from "@/components/app/CategoryEditor";
@@ -14,6 +14,7 @@ import { Stepper } from "@/components/app/Stepper";
 import { useAuth } from "@/lib/firebase/auth";
 import { createEvent } from "@/lib/firebase/db";
 import { clearDraft, emptyDraft, loadDraft, rememberEvent, saveDraft } from "@/lib/draft";
+import { usePersistentState } from "@/lib/hooks/usePersistentState";
 import { CATEGORY_PRESETS } from "@/lib/presets";
 import type { EventDraft } from "@/lib/types";
 
@@ -23,22 +24,42 @@ export function CreateWizard() {
   const router = useRouter();
   const { user, isAnonymous, loading, configured } = useAuth();
 
-  const [step, setStep] = useState(0);
+  // Step and preset are persisted alongside the draft, so a reload drops the
+  // organizer back exactly where they were rather than at step one.
+  const [step, setStep, { clear: clearStep }] = usePersistentState<number>(
+    "pairspace.wizard.step",
+    0,
+  );
   const [draft, setDraft] = useState<EventDraft>(emptyDraft);
-  const [presetId, setPresetId] = useState<string | null>(null);
+  const [presetId, setPresetId, { clear: clearPreset }] = usePersistentState<string | null>(
+    "pairspace.wizard.preset",
+    null,
+  );
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdSlug, setCreatedSlug] = useState<string | null>(null);
+  // True once the stored draft is in state. Saving before that point would
+  // overwrite the stored draft with the empty one from the first render.
+  const [hydrated, setHydrated] = useState(false);
+  const publishing = useRef(false);
 
   useEffect(() => {
     setDraft(loadDraft());
+    setHydrated(true);
   }, []);
 
   useEffect(() => {
-    saveDraft(draft);
-  }, [draft]);
+    if (hydrated) saveDraft(draft);
+  }, [hydrated, draft]);
 
   const signedIn = Boolean(user) && !isAnonymous;
+  const hasDraft = draft.name.trim().length >= 3;
+
+  // A remembered step with no draft behind it, for example after the browser
+  // storage was cleared, goes back to the start instead of a dead end.
+  useEffect(() => {
+    if (hydrated && !hasDraft && step > 0) setStep(0);
+  }, [hydrated, hasDraft, step, setStep]);
 
   function patch(next: Partial<EventDraft>) {
     setDraft((d) => ({ ...d, ...next }));
@@ -61,28 +82,33 @@ export function CreateWizard() {
   }, [step, draft]);
 
   async function publish() {
-    if (!user || isAnonymous) return;
+    if (!user || isAnonymous || !hasDraft || publishing.current) return;
+    publishing.current = true;
     setCreating(true);
     setError(null);
     try {
       const event = await createEvent(draft, user.uid);
       rememberEvent(event.slug);
       clearDraft();
+      clearStep();
+      clearPreset();
       setCreatedSlug(event.slug);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not create the event");
     } finally {
+      publishing.current = false;
       setCreating(false);
     }
   }
 
-  // Publish automatically once the organizer signs in on the last step.
+  // Publish automatically once the organizer is signed in on the last step,
+  // whether they just signed in here or arrived already signed in.
   useEffect(() => {
-    if (step === 3 && signedIn && !createdSlug && !creating && draft.name) {
+    if (step === 3 && hydrated && hasDraft && signedIn && !createdSlug && !error) {
       void publish();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, signedIn]);
+  }, [step, hydrated, hasDraft, signedIn]);
 
   return (
     <AppShell
@@ -255,6 +281,43 @@ export function CreateWizard() {
                   </div>
                 </div>
                 <div>
+                  <p className="text-[0.8125rem] text-ink-muted">Participant photos</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="chip"
+                      data-active={!draft.allowPhotos}
+                      onClick={() => patch({ allowPhotos: false, requirePhotos: false })}
+                    >
+                      Illustrated portraits only
+                    </button>
+                    <button
+                      type="button"
+                      className="chip"
+                      data-active={draft.allowPhotos && !draft.requirePhotos}
+                      onClick={() => patch({ allowPhotos: true, requirePhotos: false })}
+                    >
+                      Photos allowed
+                    </button>
+                    <button
+                      type="button"
+                      className="chip"
+                      data-active={draft.allowPhotos && draft.requirePhotos}
+                      onClick={() => patch({ allowPhotos: true, requirePhotos: true })}
+                    >
+                      Photo required
+                    </button>
+                  </div>
+                  <p className="mt-2 text-[0.8125rem] text-ink-faint">
+                    {draft.allowPhotos
+                      ? draft.requirePhotos
+                        ? "Everyone has to upload a picture. This raises the bar to join, so pick it only when seeing a face really matters, for example at a partner acrobatics event."
+                        : "Participants can upload a picture. Whoever skips it keeps an illustrated portrait."
+                      : "Everyone gets a generated portrait. Nobody is asked for a picture of themselves."}
+                  </p>
+                </div>
+
+                <div>
                   <p className="text-[0.8125rem] text-ink-muted">
                     Delete participant data after the event
                   </p>
@@ -302,10 +365,13 @@ export function CreateWizard() {
               <>
                 <header>
                   <p className="eyebrow">Last step</p>
-                  <h1 className="display-m mt-3">Sign in to keep your event link</h1>
+                  <h1 className="display-m mt-3">
+                    {signedIn ? "Creating your event link" : "Sign in to keep your event link"}
+                  </h1>
                   <p className="mt-3 text-[0.9375rem] text-ink-muted">
-                    Your event is ready. Signing in saves it to your account so you can come back to
-                    the link and see who joined.
+                    {signedIn
+                      ? "You are signed in. Your event is saved to your account so you can come back to the link and see who joined."
+                      : "Your event is ready. Signing in saves it to your account so you can come back to the link and see who joined."}
                   </p>
                 </header>
 
@@ -315,13 +381,27 @@ export function CreateWizard() {
                     {draft.categories.map((c) => c.label).join(", ") || "No categories yet"}
                   </p>
                   <p className="mt-1 text-[0.875rem] text-ink-faint">
-                    {draft.questions.length} question{draft.questions.length === 1 ? "" : "s"}, data
-                    deleted after {draft.retentionDays} days
+                    {draft.questions.length} question{draft.questions.length === 1 ? "" : "s"},{" "}
+                    {draft.allowPhotos
+                      ? draft.requirePhotos
+                        ? "photo required"
+                        : "photos allowed"
+                      : "illustrated portraits"}
+                    , data deleted after {draft.retentionDays} days
                   </p>
                 </div>
 
                 {loading ? (
                   <p className="text-[0.875rem] text-ink-faint">Checking your session</p>
+                ) : signedIn ? (
+                  <button
+                    type="button"
+                    className="btn btn-primary w-full sm:w-auto"
+                    disabled={creating}
+                    onClick={() => void publish()}
+                  >
+                    {creating ? "Creating your link" : error ? "Try again" : "Create my event link"}
+                  </button>
                 ) : (
                   <SignInButtons label="Sign in" />
                 )}

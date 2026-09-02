@@ -14,6 +14,8 @@ export const emptyDraft: EventDraft = {
   categories: [],
   questions: [],
   visibility: "participants",
+  allowPhotos: false,
+  requirePhotos: false,
   retentionDays: 30,
 };
 

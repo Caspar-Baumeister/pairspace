@@ -5,7 +5,7 @@ import { OrbitField } from "./OrbitField";
 
 export function Hero() {
   return (
-    <section className="relative px-6 pb-8 pt-20 sm:pt-28">
+    <section className="relative overflow-x-clip px-6 pb-8 pt-20 sm:pt-28">
       <OrbitField>
         <div className="relative mx-auto w-full max-w-[820px] text-center">
           <p className="eyebrow rise">Participant Matching for Events</p>
@@ -14,26 +14,22 @@ export function Hero() {
             className="display-xl rise mt-5 text-balance"
             style={{ animationDelay: "60ms" }}
           >
-            The easiest way to let participants partner up.
+            The easiest way to let participants <span className="marker">partner&nbsp;up.</span>
           </h1>
 
           <p
             className="body-l rise mx-auto mt-6 max-w-[54ch] text-pretty"
             style={{ animationDelay: "140ms" }}
           >
-            Create an event, define your participant categories, and share one link. People can
-            introduce themselves, or simply get notified when the right partner joins.
+            Create a shareable event link right now, for free.
           </p>
 
           <div
-            className="rise mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row"
+            className="rise mt-9 flex justify-center"
             style={{ animationDelay: "220ms" }}
           >
             <Link href="/create" className="btn btn-primary w-full sm:w-auto">
               Create your event
-            </Link>
-            <Link href="#how-it-works" className="btn btn-secondary w-full sm:w-auto">
-              See how it works
             </Link>
           </div>
 

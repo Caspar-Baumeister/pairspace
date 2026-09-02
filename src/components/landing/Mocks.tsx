@@ -1,3 +1,6 @@
+import { PersonAvatar } from "@/components/ui/PersonAvatar";
+import { castAvatar } from "@/lib/avatar";
+
 /**
  * Realistic interface previews. These are static renderings of the real product
  * surfaces, built with the same tokens as the app so the page never shows a
@@ -16,7 +19,7 @@ function Frame({
   return (
     <div className="card overflow-hidden">
       <div className="flex items-center gap-2.5 border-b border-line px-5 py-3.5">
-        <span className="h-4 w-4 rounded-[5px] bg-blue" aria-hidden="true" />
+        <span className="h-4 w-4 rounded-[5px] bg-accent" aria-hidden="true" />
         <span className="text-[0.875rem] font-semibold tracking-[-0.01em] text-ink">{title}</span>
         <span className="badge ml-auto bg-positive-soft text-positive">Live</span>
       </div>
@@ -89,8 +92,8 @@ export function MockShareLink() {
             strokeLinecap="round"
           />
         </svg>
-        <span className="truncate text-[0.875rem] text-ink">pairspace.app/e/acro-weekend-berlin</span>
-        <span className="badge ml-auto shrink-0 bg-blue-soft text-blue">Copy</span>
+        <span className="min-w-0 truncate text-[0.875rem] text-ink">pairspace.app/e/acro-weekend-berlin</span>
+        <span className="badge ml-auto shrink-0 bg-accent-soft text-accent">Copy</span>
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-2">
@@ -109,9 +112,9 @@ export function MockShareLink() {
 
 export function MockParticipantList() {
   const rows = [
-    { name: "Leo", role: "Base", meta: "Intermediate, Sat and Sun", score: "Strong match", tone: "positive" },
-    { name: "Sara", role: "Flyer", meta: "Improver, full weekend", score: "Possible match", tone: "blue" },
-    { name: "Ibrahim", role: "Base", meta: "Advanced, Sunday", score: "Possible match", tone: "blue" },
+    { name: "Leo", seed: "leo-fischer", role: "Base", meta: "Intermediate, Sat and Sun", score: "Strong match", tone: "positive" },
+    { name: "Sara", seed: "sara-lindqvist", role: "Flyer", meta: "Improver, full weekend", score: "Possible match", tone: "accent" },
+    { name: "Luca", seed: "luca-moretti", role: "Base", meta: "Advanced, Sunday", score: "Possible match", tone: "accent" },
   ] as const;
 
   return (
@@ -129,12 +132,7 @@ export function MockParticipantList() {
             key={r.name}
             className="flex items-center gap-3 rounded-xl border border-line px-3.5 py-3"
           >
-            <div
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-sunken text-[0.8125rem] font-semibold text-ink-secondary"
-              style={{ fontFamily: "var(--font-display)" }}
-            >
-              {r.name[0]}
-            </div>
+            <PersonAvatar name={r.name} src={castAvatar(r.seed)} size={36} />
             <div className="min-w-0">
               <p className="text-[0.875rem] font-medium text-ink">
                 {r.name}
@@ -144,7 +142,7 @@ export function MockParticipantList() {
             </div>
             <span
               className={`badge ml-auto shrink-0 ${
-                r.tone === "positive" ? "bg-positive-soft text-positive" : "bg-blue-soft text-blue"
+                r.tone === "positive" ? "bg-positive-soft text-positive" : "bg-accent-soft text-accent"
               }`}
             >
               {r.score}
@@ -213,7 +211,7 @@ export function MockOrganizerStats() {
       <div className="mt-4 rounded-xl border border-line px-3.5 py-3">
         <p className="text-[0.8125rem] text-ink-muted">Balance of categories</p>
         <div className="mt-2.5 flex h-2 overflow-hidden rounded-full bg-sunken">
-          <span className="h-full" style={{ width: "44%", background: "#2B4EF0" }} />
+          <span className="h-full" style={{ width: "44%", background: "#0D8A5E" }} />
           <span className="h-full" style={{ width: "38%", background: "#93A8F7" }} />
           <span className="h-full" style={{ width: "18%", background: "#D8DEF3" }} />
         </div>

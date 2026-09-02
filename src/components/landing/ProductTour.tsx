@@ -36,10 +36,10 @@ export function ProductTour() {
                       className="mt-[3px] shrink-0"
                       aria-hidden="true"
                     >
-                      <circle cx="9" cy="9" r="8.25" stroke="var(--color-blue-line)" />
+                      <circle cx="9" cy="9" r="8.25" stroke="var(--color-accent-line)" />
                       <path
                         d="M5.6 9.2l2.3 2.2 4.5-4.6"
-                        stroke="var(--color-blue)"
+                        stroke="var(--color-accent)"
                         strokeWidth="1.5"
                         strokeLinecap="round"
                         strokeLinejoin="round"

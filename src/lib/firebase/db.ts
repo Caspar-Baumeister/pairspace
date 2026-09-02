@@ -50,6 +50,8 @@ export async function createEvent(draft: EventDraft, ownerUid: string): Promise<
     categories: draft.categories,
     questions: draft.questions,
     visibility: draft.visibility,
+    allowPhotos: draft.allowPhotos,
+    requirePhotos: draft.allowPhotos && draft.requirePhotos,
     status: "live",
     retentionDays: draft.retentionDays,
     createdAt: now(),

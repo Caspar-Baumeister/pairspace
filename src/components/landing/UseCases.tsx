@@ -27,7 +27,7 @@ export function UseCases() {
           ))}
           <path
             d="M450 30 A420 420 0 0 1 747 153"
-            stroke="#2B4EF0"
+            stroke="#0D8A5E"
             strokeOpacity="0.2"
             strokeWidth="1.6"
           />
@@ -50,7 +50,7 @@ export function UseCases() {
                 className="group flex flex-col gap-1.5 py-5 transition-colors sm:flex-row sm:items-baseline sm:gap-8"
               >
                 <span
-                  className="tnum w-8 shrink-0 text-[0.8125rem] font-semibold text-ink-faint transition-colors group-hover:text-blue"
+                  className="tnum w-8 shrink-0 text-[0.8125rem] font-semibold text-ink-faint transition-colors group-hover:text-accent"
                   style={{ fontFamily: "var(--font-display)" }}
                 >
                   {String(i + 1).padStart(2, "0")}

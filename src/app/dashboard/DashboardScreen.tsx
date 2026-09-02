@@ -168,7 +168,7 @@ function EventList({
               <Stat label="Participants" value={event.counts?.participants ?? 0} />
               <Stat label="Still open" value={event.counts?.openForPartner ?? 0} />
               <Stat label="Connections" value={event.counts?.connections ?? 0} />
-              <span className="badge bg-blue-soft text-blue">Open</span>
+              <span className="badge bg-accent-soft text-accent">Open</span>
             </Link>
           </li>
         ))}

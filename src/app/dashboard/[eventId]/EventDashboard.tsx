@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { AppShell } from "@/components/app/AppShell";
+import { PersonAvatar } from "@/components/ui/PersonAvatar";
 import { Notice } from "@/components/app/Notice";
 import { ShareLink } from "@/components/app/ShareLink";
 import { useAuth } from "@/lib/firebase/auth";
@@ -181,7 +182,7 @@ export function EventDashboard({ eventId }: { eventId: string }) {
                     </span>
                     <span className="h-2 flex-1 overflow-hidden rounded-full bg-sunken">
                       <span
-                        className="block h-full rounded-full bg-blue transition-all duration-500"
+                        className="block h-full rounded-full bg-accent transition-all duration-500"
                         style={{ width: `${b.share}%` }}
                       />
                     </span>
@@ -227,6 +228,7 @@ export function EventDashboard({ eventId }: { eventId: string }) {
             <ul className="divide-y divide-line border-y border-line">
               {participants.map((p) => (
                 <li key={p.id} className="flex flex-wrap items-center gap-x-6 gap-y-2 py-4">
+                  <PersonAvatar name={p.firstName} seed={p.id} photoUrl={p.photoUrl} size={40} />
                   <div className="min-w-[12rem] flex-1">
                     <p className="text-[0.9375rem] font-medium text-ink">{p.firstName}</p>
                     <p className="mt-0.5 text-[0.875rem] text-ink-muted">
@@ -241,7 +243,7 @@ export function EventDashboard({ eventId }: { eventId: string }) {
                     </p>
                   </div>
                   <span
-                    className={`badge ${p.open ? "bg-blue-soft text-blue" : "bg-positive-soft text-positive"}`}
+                    className={`badge ${p.open ? "bg-accent-soft text-accent" : "bg-positive-soft text-positive"}`}
                   >
                     {p.open ? "Still open" : "Found a partner"}
                   </span>

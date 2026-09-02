@@ -15,7 +15,7 @@ export function Logo({
           cx="16"
           cy="13"
           r="7.2"
-          stroke="#2B4EF0"
+          stroke="#0D8A5E"
           strokeWidth="2.4"
           className="transition-transform duration-500 group-hover:translate-x-[1.5px]"
         />

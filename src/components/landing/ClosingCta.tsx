@@ -15,7 +15,7 @@ export function ClosingCta() {
           ))}
           <path
             d="M600 -30 A440 440 0 0 1 911 100"
-            stroke="#2B4EF0"
+            stroke="#0D8A5E"
             strokeOpacity="0.18"
             strokeWidth="1.6"
           />

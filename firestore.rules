@@ -70,7 +70,9 @@ service cloud.firestore {
                       && request.resource.data.firstName.size() <= 40
                       && request.resource.data.note.size() <= 280
                       && request.resource.data.categoryIds.size() >= 1
-                      && request.resource.data.categoryIds.size() <= 5;
+                      && request.resource.data.categoryIds.size() <= 5
+                      && (request.resource.data.photoUrl == null
+                          || request.resource.data.photoUrl is string);
 
         allow update: if isOwner(resource.data.uid)
                       && request.resource.data.uid == resource.data.uid;
