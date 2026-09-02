@@ -1,3 +1,11 @@
+# Firebase App Hosting configuration.
+#
+# The NEXT_PUBLIC values below are not secrets: Next.js inlines them into the
+# JavaScript that every visitor downloads. Firebase web config is public by
+# design, the security lives in firestore.rules and storage.rules.
+# Real secrets, such as the Resend API key, belong in Secret Manager and are
+# read by the Cloud Functions, never by this app.
+
 runConfig:
   minInstances: 0
   maxInstances: 10
@@ -12,7 +20,7 @@ env:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
-    secret: firebase-api-key
+    value: AIzaSyAtST6G5tGT7_lnccZzqILxU7fvCi7vzbg
     availability:
       - BUILD
       - RUNTIME
@@ -32,12 +40,12 @@ env:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-    secret: firebase-sender-id
+    value: 865487163332
     availability:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
-    secret: firebase-app-id
+    value: 1:865487163332:web:c15d2ca59a21af1fd7de91
     availability:
       - BUILD
       - RUNTIME
