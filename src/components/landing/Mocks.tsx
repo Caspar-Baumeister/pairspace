@@ -97,7 +97,7 @@ export function MockShareLink() {
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-2">
-        {["WhatsApp", "Email", "Event site"].map((c) => (
+        {["WhatsApp", "Email", "QR code"].map((c) => (
           <div
             key={c}
             className="rounded-xl border border-line px-3 py-2.5 text-center text-[0.8125rem] text-ink-secondary"
@@ -153,71 +153,6 @@ export function MockParticipantList() {
       <div className="mt-4 flex gap-2">
         <span className="btn btn-primary btn-sm flex-1">Connect</span>
         <span className="btn btn-secondary btn-sm flex-1">Notify me instead</span>
-      </div>
-    </Frame>
-  );
-}
-
-export function MockNotifyMe() {
-  return (
-    <Frame
-      title="Notify me instead"
-      footer={
-        <p className="text-[0.8125rem] text-ink-muted">
-          One email per match. Your address is never shown to anyone.
-        </p>
-      }
-    >
-      <p className="text-[0.875rem] text-ink-secondary">
-        No profile, no browsing. Leave an address and hear from us when someone suitable joins.
-      </p>
-      <div className="mt-4 space-y-3">
-        <div className="rounded-xl border border-line px-3.5 py-3 text-[0.875rem] text-ink-faint">
-          you@example.com
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <span className="chip" data-active="true">
-            Looking for a Base
-          </span>
-          <span className="chip">Intermediate</span>
-        </div>
-      </div>
-    </Frame>
-  );
-}
-
-export function MockOrganizerStats() {
-  const stats = [
-    { label: "Participants", value: "84" },
-    { label: "Still open", value: "31" },
-    { label: "Connections made", value: "26" },
-    { label: "Waiting for a match", value: "12" },
-  ];
-  return (
-    <Frame title="Acro Weekend Berlin, organizer view">
-      <div className="grid grid-cols-2 gap-2">
-        {stats.map((s) => (
-          <div key={s.label} className="rounded-xl border border-line px-3.5 py-3">
-            <p
-              className="tnum text-[1.75rem] font-semibold leading-none tracking-[-0.03em] text-ink"
-              style={{ fontFamily: "var(--font-display)" }}
-            >
-              {s.value}
-            </p>
-            <p className="mt-1.5 text-[0.8125rem] text-ink-muted">{s.label}</p>
-          </div>
-        ))}
-      </div>
-      <div className="mt-4 rounded-xl border border-line px-3.5 py-3">
-        <p className="text-[0.8125rem] text-ink-muted">Balance of categories</p>
-        <div className="mt-2.5 flex h-2 overflow-hidden rounded-full bg-sunken">
-          <span className="h-full" style={{ width: "44%", background: "#0D8A5E" }} />
-          <span className="h-full" style={{ width: "38%", background: "#93A8F7" }} />
-          <span className="h-full" style={{ width: "18%", background: "#D8DEF3" }} />
-        </div>
-        <p className="mt-2 text-[0.8125rem] text-ink-faint">
-          44 percent Base, 38 percent Flyer, 18 percent Both
-        </p>
       </div>
     </Frame>
   );

@@ -50,9 +50,13 @@ html {
   scroll-behavior: smooth;
   scroll-padding-top: 96px;
   -webkit-text-size-adjust: 100%;
+  /* Nothing on any page may pan the viewport sideways. clip (not hidden) so
+     position: sticky keeps working. */
+  overflow-x: clip;
 }
 
 body {
+  overflow-x: clip;
   background: var(--color-canvas);
   color: var(--color-ink-secondary);
   font-family: var(--font-sans);
@@ -320,7 +324,9 @@ body {
   border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-ink);
-  font-size: 0.9375rem;
+  /* 16px minimum: anything smaller makes iOS Safari zoom in on focus, which
+     leaves the whole page horizontally pannable afterwards. */
+  font-size: 1rem;
   transition: border-color 160ms var(--ease-out-quint), box-shadow 160ms var(--ease-out-quint);
 }
 
@@ -500,6 +506,26 @@ textarea.field {
 .reveal[data-visible="true"] {
   opacity: 1;
   transform: translateY(0);
+}
+
+/* One shot confetti for the joined screen. Pieces get their horizontal
+   position, color, size, delay and duration inline; reduced motion collapses
+   the animation, so the pieces end invisible right away. */
+.confetti-piece {
+  position: absolute;
+  top: -3vh;
+  border-radius: 2px;
+  opacity: 0;
+  animation: confetti-fall var(--confetti-duration, 2.8s) ease-in var(--confetti-delay, 0s) forwards;
+}
+
+@keyframes confetti-fall {
+  0% { opacity: 1; transform: translateY(0) translateX(0) rotate(0deg); }
+  80% { opacity: 1; }
+  100% {
+    opacity: 0;
+    transform: translateY(104vh) translateX(var(--confetti-sway, 0px)) rotate(var(--confetti-spin, 540deg));
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

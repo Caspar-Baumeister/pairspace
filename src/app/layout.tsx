@@ -63,7 +63,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    // data-scroll-behavior tells Next 16 to suspend smooth scrolling during
+    // route navigation, so a new page opens at the top instead of visibly
+    // scrolling there.
+    <html lang="en" data-scroll-behavior="smooth">
       <body>
         <a
           href="#main"

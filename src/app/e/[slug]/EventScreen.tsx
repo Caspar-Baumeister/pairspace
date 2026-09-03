@@ -32,7 +32,7 @@ import { usePersistentState } from "@/lib/hooks/usePersistentState";
 import { deleteParticipantPhoto, uploadParticipantPhoto } from "@/lib/firebase/storage";
 import type { Connection, PairspaceEvent, Participant } from "@/lib/types";
 
-type View = "choose" | "join" | "matches" | "notify" | "notified" | "profile";
+type View = "choose" | "join" | "joined" | "matches" | "notify" | "notified" | "profile";
 
 export function EventScreen({ slug }: { slug: string }) {
   const { ensureAnonymous, configured } = useAuth();
@@ -98,6 +98,12 @@ export function EventScreen({ slug }: { slug: string }) {
     };
   }, [event, me]);
 
+  // The join form is long, so after submitting the participant sits far down
+  // the page. Snap to the top so the success screen opens with its headline.
+  useEffect(() => {
+    if (view === "joined") window.scrollTo({ top: 0, behavior: "instant" });
+  }, [view]);
+
   const matches = useMemo(() => {
     if (!event || !me) return [];
     return rankMatches(me, participants, event);
@@ -119,6 +125,7 @@ export function EventScreen({ slug }: { slug: string }) {
   const handleJoin = useCallback(
     async (value: ParticipantSubmission) => {
       if (!event) return;
+      const firstJoin = !me;
       setBusy(true);
       setError(null);
       try {
@@ -159,7 +166,7 @@ export function EventScreen({ slug }: { slug: string }) {
           me?.id,
         );
         setMe(saved);
-        setView("matches");
+        setView(firstJoin ? "joined" : "matches");
       } catch (e) {
         setError(e instanceof Error ? e.message : "Could not save your profile");
       } finally {
@@ -222,7 +229,7 @@ export function EventScreen({ slug }: { slug: string }) {
       </header>
 
       <main id="main" className="mx-auto w-full max-w-[760px] px-5 pb-24 pt-8">
-        {me && view !== "profile" ? (
+        {view === "joined" ? null : me && view !== "profile" ? (
           <section aria-label="Greeting">
             <div className="flex items-center gap-4">
               <PersonAvatar name={me.firstName} seed={me.id} photoUrl={me.photoUrl} size={56} />
@@ -394,6 +401,57 @@ export function EventScreen({ slug }: { slug: string }) {
                   I found someone
                 </button>
               </div>
+            </div>
+          </section>
+        ) : null}
+
+        {view === "joined" && me ? (
+          <section className="mx-auto mt-6 max-w-[520px] text-center">
+            <Confetti />
+            <div
+              className="mx-auto flex h-16 w-16 items-center justify-center rounded-full text-white shadow-(--shadow-accent)"
+              style={{ background: "var(--gradient-accent)" }}
+              aria-hidden="true"
+            >
+              <CheckIcon size={28} />
+            </div>
+            <h2 className="display-m mt-6 text-balance">You are all set, {me.firstName}!</h2>
+            <p className="mx-auto mt-3 max-w-[42ch] text-[1.0625rem] leading-relaxed text-ink-muted">
+              Your profile for {event.name} is live and other participants can find you now.
+            </p>
+
+            <div className="sheet mt-8 space-y-4 p-6 text-left">
+              <JoinedFact title="No account, no password">
+                You are done. There is nothing to sign up for and nothing to install.
+              </JoinedFact>
+              <JoinedFact title="Come back anytime">
+                Just open this same event link again to see new people, answer requests, or change
+                your profile.
+              </JoinedFact>
+              {me.notifyOnMatch && me.email ? (
+                <JoinedFact title="We keep an eye out for you">
+                  You get an email when someone wants to pair up with you.
+                </JoinedFact>
+              ) : null}
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-primary mt-6 w-full sm:w-auto"
+              onClick={() => setView("matches")}
+            >
+              See who is looking
+              <SparkIcon size={15} />
+            </button>
+
+            <div className="card mt-10 p-5 text-left">
+              <p className="eyebrow">Organizing something yourself?</p>
+              <p className="mt-2 text-[0.9375rem] leading-relaxed text-ink-muted">
+                Get a link like this for your own event. Free, ready in minutes, QR code included.
+              </p>
+              <Link href="/create" className="btn btn-secondary btn-sm mt-4">
+                Create your own event
+              </Link>
             </div>
           </section>
         ) : null}
@@ -636,6 +694,75 @@ export function EventScreen({ slug }: { slug: string }) {
           network. Profiles live inside this event only.
         </p>
       </footer>
+    </div>
+  );
+}
+
+function JoinedFact({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-3">
+      <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
+        <CheckIcon size={12} />
+      </span>
+      <div>
+        <p className="text-[0.9375rem] font-semibold tracking-[-0.01em] text-ink">{title}</p>
+        <p className="mt-0.5 text-[0.875rem] leading-relaxed text-ink-muted">{children}</p>
+      </div>
+    </div>
+  );
+}
+
+/** Brand palette only: emerald tones plus a little amber and periwinkle. */
+const CONFETTI_COLORS = ["#0d8a5e", "#27a97c", "#bfe2d2", "#f2b70a", "#93a8f7", "#221418"];
+
+/**
+ * A single celebratory burst when the profile is created. Pure CSS animation,
+ * removes itself from the tree when the pieces are done, and reduced motion
+ * collapses it instantly (see globals.css).
+ */
+function Confetti() {
+  const [gone, setGone] = useState(false);
+  const pieces = useMemo(
+    () =>
+      Array.from({ length: 56 }, (_, i) => ({
+        left: `${(i * 137.5) % 100}%`,
+        color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+        width: 5 + ((i * 7) % 6),
+        height: 8 + ((i * 11) % 8),
+        delay: `${(i % 14) * 90}ms`,
+        duration: `${2200 + ((i * 53) % 1400)}ms`,
+        sway: `${((i * 29) % 120) - 60}px`,
+        spin: `${360 + ((i * 47) % 540)}deg`,
+      })),
+    [],
+  );
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setGone(true), 5200);
+    return () => window.clearTimeout(id);
+  }, []);
+
+  if (gone) return null;
+  return (
+    <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden" aria-hidden="true">
+      {pieces.map((p, i) => (
+        <span
+          key={i}
+          className="confetti-piece"
+          style={
+            {
+              left: p.left,
+              width: p.width,
+              height: p.height,
+              background: p.color,
+              "--confetti-delay": p.delay,
+              "--confetti-duration": p.duration,
+              "--confetti-sway": p.sway,
+              "--confetti-spin": p.spin,
+            } as React.CSSProperties
+          }
+        />
+      ))}
     </div>
   );
 }

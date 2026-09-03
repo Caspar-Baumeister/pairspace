@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
 
 import { Boundaries } from "@/components/landing/Boundaries";
-import { ClosingCta } from "@/components/landing/ClosingCta";
 import { Faq } from "@/components/landing/Faq";
+import { Feedback } from "@/components/landing/Feedback";
 import { Hero } from "@/components/landing/Hero";
 import { HowItWorks } from "@/components/landing/HowItWorks";
-import { Matching } from "@/components/landing/Matching";
-import { ProductTour } from "@/components/landing/ProductTour";
 import { ProofBand } from "@/components/landing/ProofBand";
 import { UseCases } from "@/components/landing/UseCases";
 import { Footer } from "@/components/site/Footer";
@@ -35,7 +33,7 @@ const softwareSchema = {
   offers: { "@type": "Offer", price: "0", priceCurrency: "EUR" },
   featureList: [
     "Custom participant categories such as Base, Flyer, Leader and Follower",
-    "One shareable event link with no app download",
+    "One shareable event link and QR code with no app download",
     "Temporary event profiles instead of permanent accounts",
     "Email notification when a matching participant joins",
     "Organizer dashboard with live participant statistics",
@@ -64,8 +62,8 @@ const howToSchema = {
     },
     {
       "@type": "HowToStep",
-      name: "Share one simple link",
-      text: "Send the event link through WhatsApp, email or your event website.",
+      name: "Get a link and QR code",
+      text: "You instantly get a shareable event link and a QR code for free. Send the link through WhatsApp or email, or print the QR code at the venue.",
     },
     {
       "@type": "HowToStep",
@@ -96,12 +94,10 @@ export default function HomePage() {
         <Hero />
         <ProofBand />
         <HowItWorks />
-        <Matching />
-        <ProductTour />
         <UseCases />
         <Boundaries />
         <Faq />
-        <ClosingCta />
+        <Feedback />
       </main>
       <Footer />
     </>

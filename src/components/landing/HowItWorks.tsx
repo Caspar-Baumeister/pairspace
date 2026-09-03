@@ -5,25 +5,22 @@ const steps = [
   {
     n: "01",
     eyebrow: "Event creator",
-    title: "Create your event and participant categories",
-    body: "Define what matters at your event: Base or Flyer, Leader or Follower, role, level, availability, team size, or your own categories. Add the questions participants should answer and mark which ones count for matching.",
-    aside: "Takes about two minutes. No credit card, no setup call.",
+    title: "Create your event",
+    body: "Pick your categories and questions. Base or Flyer, level, availability, or your own.",
     mock: <MockEventSetup />,
   },
   {
     n: "02",
     eyebrow: "One link",
-    title: "Share one simple link",
-    body: "You get a single link for this event. Put it in your WhatsApp group, your confirmation email, or on your event website. Participants open it in the browser they already have.",
-    aside: "The link is the whole distribution. Nothing to install, nothing to approve.",
+    title: "Get a link and QR code",
+    body: "Instantly and for free. Share it anywhere, participants open it in the browser.",
     mock: <MockShareLink />,
   },
   {
     n: "03",
     eyebrow: "Participants",
-    title: "Let participants join or activate notifications",
-    body: "Everyone chooses their own path. Create a temporary event profile and browse who else is looking, or skip the profile entirely and leave an email address to hear about it when a suitable partner joins.",
-    aside: "Profiles live inside this one event and disappear afterwards.",
+    title: "Participants pair up",
+    body: "They join with a temporary profile and find each other. No app, no account.",
     mock: <MockParticipantList />,
   },
 ];
@@ -65,13 +62,6 @@ export function HowItWorks() {
                   <h3 className="display-m mt-3 max-w-[16ch] text-balance">{s.title}</h3>
                   <p className="mt-5 max-w-[46ch] text-[1.0625rem] leading-relaxed text-ink-muted">
                     {s.body}
-                  </p>
-                  <p className="mt-6 flex items-start gap-2.5 text-[0.875rem] text-ink-faint">
-                    <span
-                      className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-accent"
-                      aria-hidden="true"
-                    />
-                    {s.aside}
                   </p>
                 </div>
                 <div className="relative min-w-0">

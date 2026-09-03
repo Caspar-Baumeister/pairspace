@@ -52,7 +52,7 @@ function OptionList({
         {question.options.map((option, i) => (
           <li key={`${option}-${i}`} className="flex items-center gap-2">
             <input
-              className="field h-9 flex-1 text-[0.875rem]"
+              className="field h-9 flex-1 sm:text-[0.875rem]"
               value={option}
               onChange={(e) => rename(i, e.target.value)}
               aria-label={`Choice ${i + 1} of ${question.label}`}
@@ -97,7 +97,7 @@ function OptionList({
 
       <div className="mt-2 flex gap-2">
         <input
-          className="field h-9 text-[0.875rem]"
+          className="field h-9 sm:text-[0.875rem]"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
