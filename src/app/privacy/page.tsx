@@ -26,7 +26,8 @@ export default function PrivacyPage() {
         </li>
         <li>
           Participant profile: first name, chosen categories, answers to the event questions, a
-          short free text note and an email address.
+          short free text note and, if the person chooses to leave them, an email address or a
+          phone number.
         </li>
         <li>Notification requests: an email address and the categories a person is waiting for.</li>
       </ul>
@@ -34,9 +35,10 @@ export default function PrivacyPage() {
       <h2>What other participants can see</h2>
       <p>
         Other participants see the first name, the categories and the answers to the questions the
-        organizer defined. Email addresses are never visible in the product. An address is shared
-        with exactly one other person, by email, at the moment both sides accept a connection
-        request.
+        organizer defined. Contact details are never visible in the product, not even to the
+        organizer. They are shared with exactly one other person, on the event page and by email
+        when that person left an address, at the moment both sides accept a connection request.
+        A participant may also choose to leave no contact details at all.
       </p>
 
       <h2>How long we keep it</h2>

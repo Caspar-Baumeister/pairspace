@@ -15,10 +15,33 @@ const RESEND_API_KEY = defineSecret("RESEND_API_KEY");
 
 setGlobalOptions({ region: "europe-west1", maxInstances: 10 });
 
-const SITE = process.env.SITE_URL ?? "https://pairspace.app";
+const SITE = process.env.SITE_URL ?? "https://joinpairspace.com";
 
 function eventLink(slug: string): string {
   return `${SITE}/e/${slug}`;
+}
+
+type Snapshot = FirebaseFirestore.DocumentSnapshot;
+
+interface Contact {
+  email: string;
+  phone: string;
+}
+
+/**
+ * Contact details of a participant. They live in the private subcollection.
+ * Profiles created before that existed still carry an email on the public
+ * document, so fall back to it until the person saves their profile again.
+ */
+async function contactOf(participant: Snapshot): Promise<Contact> {
+  const priv = await participant.ref.collection("private").doc("contact").get();
+  if (priv.exists) {
+    return {
+      email: ((priv.get("email") as string | undefined) ?? "").trim(),
+      phone: ((priv.get("phone") as string | undefined) ?? "").trim(),
+    };
+  }
+  return { email: ((participant.get("email") as string | undefined) ?? "").trim(), phone: "" };
 }
 
 async function recount(eventId: string): Promise<void> {
@@ -64,6 +87,7 @@ export const onParticipantJoined = onDocumentCreated(
     const joinedCategories: string[] = joined.categoryIds ?? [];
     const categoryLabel = (id: string) =>
       (eventData.categories ?? []).find((c: { id: string }) => c.id === id)?.label ?? id;
+    const joinedAs = joinedCategories.map(categoryLabel).join(" and ");
 
     /* Watchers who wanted this category. */
     const watchers = await db.collection(`events/${eventId}/watchers`).get();
@@ -75,19 +99,17 @@ export const onParticipantJoined = onDocumentCreated(
 
     await Promise.all(
       matchingWatchers.map(async (doc) => {
-        await send({
+        const sent = await send({
           to: doc.get("email") as string,
           subject: `A matching participant joined ${eventData.name}`,
           heading: "Someone matching just joined",
           body: [
-            `${joined.firstName} joined <strong>${eventData.name}</strong> as ${joinedCategories
-              .map(categoryLabel)
-              .join(" and ")}.`,
+            `${joined.firstName} joined <strong>${eventData.name}</strong> as ${joinedAs}.`,
             "Open the event to see the profile and send a request.",
           ],
           cta: { label: "See who joined", url: link },
         });
-        await doc.ref.update({ notifiedAt: Date.now() });
+        if (sent) await doc.ref.update({ notifiedAt: Date.now() });
       }),
     );
 
@@ -97,25 +119,28 @@ export const onParticipantJoined = onDocumentCreated(
       .where("notifyOnMatch", "==", true)
       .get();
 
+    const interested = others.docs
+      .filter((doc) => doc.id !== event.params.participantId && doc.get("open") === true)
+      .filter((doc) => {
+        const wants: string[] = doc.get("lookingForIds") ?? [];
+        return wants.some((w) => joinedCategories.includes(w));
+      });
+
     await Promise.all(
-      others.docs
-        .filter((doc) => doc.id !== event.params.participantId && doc.get("open") === true)
-        .filter((doc) => {
-          const wants: string[] = doc.get("lookingForIds") ?? [];
-          return wants.some((w) => joinedCategories.includes(w));
-        })
-        .map((doc) =>
-          send({
-            to: doc.get("email") as string,
-            subject: `${joined.firstName} matches your search at ${eventData.name}`,
-            heading: `${joined.firstName} matches your search`,
-            body: [
-              `${joined.firstName} joined as ${joinedCategories.map(categoryLabel).join(" and ")}.`,
-              "You can send a request from the event page. Your email address stays hidden until you both agree.",
-            ],
-            cta: { label: "Open the event", url: link },
-          }),
-        ),
+      interested.map(async (doc) => {
+        const { email } = await contactOf(doc);
+        if (!email) return;
+        await send({
+          to: email,
+          subject: `${joined.firstName} matches your search at ${eventData.name}`,
+          heading: `${joined.firstName} matches your search`,
+          body: [
+            `${joined.firstName} joined as ${joinedAs}.`,
+            "You can send a request from the event page. Your contact details stay hidden until you both agree.",
+          ],
+          cta: { label: "Open the event", url: link },
+        });
+      }),
     );
   },
 );
@@ -134,7 +159,10 @@ export const onParticipantRemoved = onDocumentDeleted(
   },
 );
 
-/** A participant asked someone to pair up. Notify the receiver. */
+/**
+ * A participant asked someone to pair up. Notify the receiver by email when
+ * they left one. People who chose the link only see the request on the page.
+ */
 export const onConnectionCreated = onDocumentCreated(
   { document: "events/{eventId}/connections/{connectionId}", secrets: [RESEND_API_KEY] },
   async (event) => {
@@ -149,8 +177,17 @@ export const onConnectionCreated = onDocumentCreated(
     ]);
     if (!eventSnap.exists || !toSnap.exists) return;
 
+    const { email } = await contactOf(toSnap);
+    if (!email) {
+      console.log("[request] receiver has no email, request waits on the event page", {
+        eventId,
+        to: toSnap.id,
+      });
+      return;
+    }
+
     await send({
-      to: toSnap.get("email") as string,
+      to: email,
       subject: `${fromSnap.get("firstName")} wants to pair up at ${eventSnap.get("name")}`,
       heading: `${fromSnap.get("firstName")} wants to pair up`,
       body: [
@@ -162,9 +199,25 @@ export const onConnectionCreated = onDocumentCreated(
   },
 );
 
+function describeContact(contact: Contact): string {
+  const parts: string[] = [];
+  if (contact.email) {
+    parts.push(`by email at <a href="mailto:${contact.email}" style="color:#0d8a5e">${contact.email}</a>`);
+  }
+  if (contact.phone) {
+    const digits = contact.phone.replace(/[^\d]/g, "");
+    parts.push(
+      `on WhatsApp or by phone at <a href="https://wa.me/${digits}" style="color:#0d8a5e">${contact.phone}</a>`,
+    );
+  }
+  return parts.join(" or ");
+}
+
 /**
- * The request was accepted. This is the only moment an email address leaves the
- * database, and it goes to exactly one person who agreed to receive it.
+ * The request was accepted. This is the only moment contact details leave the
+ * private collection. They go to exactly one person who agreed to receive
+ * them: into that person's private shared document, so they can be read on
+ * the event page, and by email when the person left an address.
  */
 export const onConnectionAnswered = onDocumentUpdated(
   { document: "events/{eventId}/connections/{connectionId}", secrets: [RESEND_API_KEY] },
@@ -174,7 +227,7 @@ export const onConnectionAnswered = onDocumentUpdated(
     if (!before || !after) return;
     if (before.status === after.status) return;
 
-    const { eventId } = event.params;
+    const { eventId, connectionId } = event.params;
     await recount(eventId);
 
     if (after.status !== "accepted") return;
@@ -187,27 +240,59 @@ export const onConnectionAnswered = onDocumentUpdated(
     if (!fromSnap.exists || !toSnap.exists) return;
 
     const eventName = eventSnap.get("name") as string;
-    const pairs: [FirebaseFirestore.DocumentSnapshot, FirebaseFirestore.DocumentSnapshot][] = [
-      [fromSnap, toSnap],
-      [toSnap, fromSnap],
+    const link = eventLink(eventSnap.get("slug") as string);
+    const [fromContact, toContact] = await Promise.all([contactOf(fromSnap), contactOf(toSnap)]);
+    const sharedAt = Date.now();
+
+    const pairs: [Snapshot, Contact, Snapshot, Contact][] = [
+      [fromSnap, fromContact, toSnap, toContact],
+      [toSnap, toContact, fromSnap, fromContact],
     ];
 
     await Promise.all(
-      pairs.map(([recipient, other]) =>
-        send({
-          to: recipient.get("email") as string,
+      pairs.map(async ([recipient, recipientContact, other, otherContact]) => {
+        // Release the other person's details into the recipient's private area.
+        await recipient.ref
+          .collection("private")
+          .doc("shared")
+          .set(
+            {
+              uid: recipient.get("uid"),
+              updatedAt: sharedAt,
+              contacts: {
+                [other.id]: {
+                  participantId: other.id,
+                  connectionId,
+                  firstName: other.get("firstName"),
+                  email: otherContact.email,
+                  phone: otherContact.phone,
+                  sharedAt,
+                },
+              },
+            },
+            { merge: true },
+          );
+
+        if (!recipientContact.email) return;
+
+        const how = describeContact(otherContact);
+        await send({
+          to: recipientContact.email,
           subject: `You are paired up at ${eventName}`,
           heading: "You are paired up",
           body: [
             `${other.get("firstName")} agreed to pair up with you at <strong>${eventName}</strong>.`,
-            `You can reach them at <a href="mailto:${other.get("email")}" style="color:#2B4EF0">${other.get("email")}</a>.`,
-            "This address was shared because you both agreed. Nobody else at the event can see it.",
+            how
+              ? `You can reach them ${how}.`
+              : `${other.get("firstName")} did not leave contact details and will find you through the event page. You can see the connection there any time.`,
+            "These details were shared because you both agreed. Nobody else at the event can see them.",
           ],
-        }),
-      ),
+          cta: { label: "Open the event", url: link },
+        });
+      }),
     );
 
-    await event.data?.after.ref.update({ contactSharedAt: Date.now() });
+    await event.data?.after.ref.update({ contactSharedAt: sharedAt });
   },
 );
 
@@ -245,20 +330,9 @@ export const cleanupExpiredEvents = onSchedule("every day 03:00", async () => {
       console.error("Could not delete photos for", eventDoc.id, error);
     }
 
+    // Recursive, so the private contact documents under each participant go too.
     for (const sub of ["participants", "watchers", "connections"]) {
-      const docs = await eventDoc.ref.collection(sub).get();
-      let batch = db.batch();
-      let count = 0;
-      for (const d of docs.docs) {
-        batch.delete(d.ref);
-        count += 1;
-        if (count === 400) {
-          await batch.commit();
-          batch = db.batch();
-          count = 0;
-        }
-      }
-      if (count) await batch.commit();
+      await db.recursiveDelete(eventDoc.ref.collection(sub));
     }
 
     await eventDoc.ref.update({

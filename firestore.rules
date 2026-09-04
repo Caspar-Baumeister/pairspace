@@ -56,10 +56,15 @@ service cloud.firestore {
 
       allow delete: if isOwner(resource.data.ownerUid);
 
-      /* Participants. Email addresses are stripped from reads by the client,
-         and never leave the collection except through an accepted connection
-         handled by a Cloud Function. */
+      /* Participants. The public profile holds no contact details. Those live
+         in the private subcollection below and only leave it through an
+         accepted connection handled by a Cloud Function. */
       match /participants/{participantId} {
+        function ownsParticipant() {
+          return signedIn()
+                 && get(/databases/$(database)/documents/events/$(eventId)/participants/$(participantId)).data.uid == request.auth.uid;
+        }
+
         allow read: if isEventOwner(eventId) || profilesAreShared(eventId);
 
         allow create: if signedIn()
@@ -78,6 +83,23 @@ service cloud.firestore {
                       && request.resource.data.uid == resource.data.uid;
 
         allow delete: if isOwner(resource.data.uid) || isEventOwner(eventId);
+
+        /* Own contact details and the contacts released to this person.
+           Readable by the participant only, not even by the organizer.
+           The shared document is written by the Cloud Functions alone. */
+        match /private/{docId} {
+          allow read: if ownsParticipant();
+
+          allow create, update: if docId == 'contact'
+                                && ownsParticipant()
+                                && request.resource.data.uid == request.auth.uid
+                                && request.resource.data.email is string
+                                && request.resource.data.email.size() <= 120
+                                && request.resource.data.phone is string
+                                && request.resource.data.phone.size() <= 40;
+
+          allow delete: if ownsParticipant();
+        }
       }
 
       /* Watchers hold only an email address. Nobody may read them from the

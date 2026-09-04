@@ -13,6 +13,7 @@ import {
 } from "@/components/app/MatchList";
 import { Notice } from "@/components/app/Notice";
 import { ParticipantForm, type ParticipantSubmission } from "@/components/app/ParticipantForm";
+import { PersonSheet } from "@/components/app/PersonSheet";
 import { Logo } from "@/components/site/Logo";
 import { PersonAvatar } from "@/components/ui/PersonAvatar";
 import { poolAvatar, tintFor } from "@/lib/avatar";
@@ -21,16 +22,24 @@ import {
   addWatcher,
   findMyParticipant,
   getEventBySlug,
+  getMyContact,
   requestConnection,
   saveParticipant,
   setParticipantOpen,
   watchConnections,
   watchParticipants,
+  watchSharedContacts,
 } from "@/lib/firebase/db";
 import { rankMatches } from "@/lib/matching";
 import { usePersistentState } from "@/lib/hooks/usePersistentState";
 import { deleteParticipantPhoto, uploadParticipantPhoto } from "@/lib/firebase/storage";
-import type { Connection, PairspaceEvent, Participant } from "@/lib/types";
+import type {
+  Connection,
+  PairspaceEvent,
+  Participant,
+  ParticipantContact,
+  SharedContacts,
+} from "@/lib/types";
 
 type View = "choose" | "join" | "joined" | "matches" | "notify" | "notified" | "profile";
 
@@ -41,8 +50,12 @@ export function EventScreen({ slug }: { slug: string }) {
   const [status, setStatus] = useState<"loading" | "ready" | "missing" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
   const [me, setMe] = useState<Participant | null>(null);
+  const [myContact, setMyContact] = useState<ParticipantContact | null>(null);
+  const [shared, setShared] = useState<SharedContacts | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
+  /** Whose profile sheet is open. */
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [view, setView] = useState<View>("choose");
   const [tab, setTab] = useState<"people" | "requests">("people");
   const [busy, setBusy] = useState(false);
@@ -75,6 +88,7 @@ export function EventScreen({ slug }: { slug: string }) {
         if (!live) return;
         if (mine) {
           setMe(mine);
+          setMyContact(await loadContact(found.id, mine));
           setView("matches");
         }
       } catch (e) {
@@ -92,9 +106,11 @@ export function EventScreen({ slug }: { slug: string }) {
     if (!event || !me) return;
     const unsubP = watchParticipants(event.id, setParticipants);
     const unsubC = watchConnections(event.id, setConnections);
+    const unsubS = watchSharedContacts(event.id, me.id, setShared);
     return () => {
       unsubP();
       unsubC();
+      unsubS();
     };
   }, [event, me]);
 
@@ -120,6 +136,28 @@ export function EventScreen({ slug }: { slug: string }) {
   const incoming = useMemo(
     () => connections.filter((c) => c.toParticipantId === me?.id && c.status === "pending"),
     [connections, me],
+  );
+
+  /** Accepted connections in either direction, newest first. */
+  const connected = useMemo(
+    () =>
+      connections
+        .filter(
+          (c) =>
+            c.status === "accepted" &&
+            (c.fromParticipantId === me?.id || c.toParticipantId === me?.id),
+        )
+        .map((c) => ({
+          connection: c,
+          otherId: c.fromParticipantId === me?.id ? c.toParticipantId : c.fromParticipantId,
+        }))
+        .sort((a, b) => (b.connection.respondedAt ?? 0) - (a.connection.respondedAt ?? 0)),
+    [connections, me],
+  );
+
+  const selected = useMemo(
+    () => matches.find((m) => m.participant.id === selectedId) ?? null,
+    [matches, selectedId],
   );
 
   const handleJoin = useCallback(
@@ -158,14 +196,20 @@ export function EventScreen({ slug }: { slug: string }) {
             note: value.note.trim(),
             photoUrl,
             photoPath,
-            email: value.email.trim().toLowerCase(),
-            emailVerified: false,
+            contactMethods: value.contactMethods,
             open: me?.open ?? true,
             notifyOnMatch: value.notifyOnMatch,
           },
+          { email: value.email, phone: value.phone },
           me?.id,
         );
         setMe(saved);
+        setMyContact({
+          uid: user.uid,
+          email: value.email.trim().toLowerCase(),
+          phone: value.phone.trim(),
+          updatedAt: Date.now(),
+        });
         setView(firstJoin ? "joined" : "matches");
       } catch (e) {
         setError(e instanceof Error ? e.message : "Could not save your profile");
@@ -373,7 +417,13 @@ export function EventScreen({ slug }: { slug: string }) {
               <h2 className="heading">Edit your profile</h2>
             </div>
             <div className="sheet mt-6 p-6 sm:p-8">
-              <ParticipantForm event={event} existing={me} onSubmit={handleJoin} busy={busy} />
+              <ParticipantForm
+                event={event}
+                existing={me}
+                existingContact={myContact}
+                onSubmit={handleJoin}
+                busy={busy}
+              />
             </div>
             <div className="card mt-6 p-5">
               <p className="text-[0.9375rem] font-medium text-ink">Still looking for a partner?</p>
@@ -428,11 +478,17 @@ export function EventScreen({ slug }: { slug: string }) {
                 Just open this same event link again to see new people, answer requests, or change
                 your profile.
               </JoinedFact>
-              {me.notifyOnMatch && me.email ? (
+              {myContact?.email ? (
                 <JoinedFact title="We keep an eye out for you">
-                  You get an email when someone wants to pair up with you.
+                  You get an email when someone wants to pair up with you
+                  {me.notifyOnMatch ? ", and when a matching participant joins" : ""}.
                 </JoinedFact>
-              ) : null}
+              ) : (
+                <JoinedFact title="Requests wait for you here">
+                  You left no email address, so we cannot notify you. Open this link now and
+                  then to see who wants to pair up.
+                </JoinedFact>
+              )}
             </div>
 
             <button
@@ -481,10 +537,12 @@ export function EventScreen({ slug }: { slug: string }) {
                   <span className="text-[0.75rem] text-ink-muted">You</span>
                 </button>
                 {matches.map(({ participant }) => (
-                  <a
+                  <button
                     key={participant.id}
-                    href={`#person-${participant.id}`}
-                    className="flex w-16 shrink-0 flex-col items-center gap-1.5"
+                    type="button"
+                    className="flex w-16 shrink-0 cursor-pointer flex-col items-center gap-1.5"
+                    aria-label={`Open the profile of ${participant.firstName}`}
+                    onClick={() => setSelectedId(participant.id)}
                   >
                     <span className="story-ring">
                       <PersonAvatar
@@ -498,7 +556,7 @@ export function EventScreen({ slug }: { slug: string }) {
                     <span className="w-full truncate text-center text-[0.75rem] text-ink-muted">
                       {participant.firstName}
                     </span>
-                  </a>
+                  </button>
                 ))}
               </div>
             ) : null}
@@ -548,6 +606,7 @@ export function EventScreen({ slug }: { slug: string }) {
                   matches={matches}
                   me={me}
                   pendingIds={pendingIds}
+                  onOpenProfile={(target) => setSelectedId(target.id)}
                   onConnect={async (target, message) => {
                     await requestConnection(event.id, me.id, target.id, message);
                   }}
@@ -555,7 +614,7 @@ export function EventScreen({ slug }: { slug: string }) {
               </div>
             ) : (
               <div className="mt-5 space-y-4">
-                {incoming.length ? (
+                {incoming.length || connected.length ? (
                   incoming.map((c) => {
                     const from = participants.find((p) => p.id === c.fromParticipantId);
                     return (
@@ -579,17 +638,49 @@ export function EventScreen({ slug }: { slug: string }) {
                             {c.message}
                           </p>
                         ) : null}
-                        <RequestActions eventId={event.id} connectionId={c.id} />
+                        <RequestActions
+                          eventId={event.id}
+                          connectionId={c.id}
+                          otherName={from?.firstName ?? "Someone"}
+                        />
                       </div>
                     );
                   })
                 ) : (
                   <div className="rounded-xl border border-dashed border-line-strong bg-surface p-8 text-center">
                     <p className="text-[0.9375rem] text-ink-muted">
-                      No requests yet. Send one yourself — most pairs start that way.
+                      No requests yet. Send one yourself, most pairs start that way.
                     </p>
                   </div>
                 )}
+
+                {connected.length ? (
+                  <div className="pt-4">
+                    <p className="eyebrow">Connected</p>
+                    <p className="mt-2 text-[0.875rem] text-ink-muted">
+                      You both agreed, so here are the contact details. Nobody else can see them.
+                    </p>
+                    <ul className="mt-4 space-y-3">
+                      {connected.map(({ connection, otherId }) => {
+                        const other = participants.find((p) => p.id === otherId);
+                        const details = shared?.contacts?.[otherId] ?? null;
+                        return (
+                          <li key={connection.id}>
+                            <ContactCard
+                              name={other?.firstName ?? details?.firstName ?? "Someone"}
+                              seed={otherId}
+                              photoUrl={other?.photoUrl}
+                              email={details?.email ?? ""}
+                              phone={details?.phone ?? ""}
+                              ready={Boolean(details)}
+                              onOpenProfile={other ? () => setSelectedId(other.id) : undefined}
+                            />
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ) : null}
               </div>
             )}
           </section>
@@ -688,12 +779,113 @@ export function EventScreen({ slug }: { slug: string }) {
         ) : null}
       </main>
 
+      {selected && me ? (
+        <PersonSheet
+          event={event}
+          match={selected}
+          pending={pendingIds.includes(selected.participant.id)}
+          onClose={() => setSelectedId(null)}
+          onConnect={async (target, message) => {
+            await requestConnection(event.id, me.id, target.id, message);
+          }}
+        />
+      ) : null}
+
       <footer className="border-t border-line/60 px-5 py-6">
         <p className="mx-auto w-full max-w-[760px] text-[0.8125rem] text-ink-faint">
           Pairspace is participant matching for events. It is not a dating service and not a social
           network. Profiles live inside this event only.
         </p>
       </footer>
+    </div>
+  );
+}
+
+/**
+ * Own contact details live in a private document. Profiles saved before that
+ * existed still carry an email on the public record, so that is read as a
+ * fallback until the person saves the profile again.
+ */
+async function loadContact(eventId: string, mine: Participant): Promise<ParticipantContact | null> {
+  const stored = await getMyContact(eventId, mine.id).catch(() => null);
+  if (stored) return stored;
+  const legacyEmail = (mine as Participant & { email?: string }).email;
+  if (!legacyEmail) return null;
+  return { uid: mine.uid, email: legacyEmail, phone: "", updatedAt: mine.updatedAt };
+}
+
+/** One accepted connection: who it is and how to reach them. */
+function ContactCard({
+  name,
+  seed,
+  photoUrl,
+  email,
+  phone,
+  ready,
+  onOpenProfile,
+}: {
+  name: string;
+  seed: string;
+  photoUrl?: string | null;
+  email: string;
+  phone: string;
+  ready: boolean;
+  onOpenProfile?: () => void;
+}) {
+  const digits = phone.replace(/\D/g, "");
+  return (
+    <div className="card p-5">
+      <div className="flex items-center gap-3.5">
+        <button
+          type="button"
+          className="cursor-pointer disabled:cursor-default"
+          onClick={onOpenProfile}
+          disabled={!onOpenProfile}
+          aria-label={`Open the profile of ${name}`}
+        >
+          <PersonAvatar name={name} seed={seed} photoUrl={photoUrl} size={48} />
+        </button>
+        <div className="min-w-0">
+          <p className="text-[1rem] font-semibold tracking-[-0.01em] text-ink">{name}</p>
+          <p className="flex items-center gap-1.5 text-[0.8125rem] text-positive">
+            <CheckIcon size={12} />
+            Paired up with you
+          </p>
+        </div>
+      </div>
+      {!ready ? (
+        <p className="mt-3 text-[0.875rem] text-ink-muted">
+          Contact details are on their way, this takes a few seconds.
+        </p>
+      ) : !email && !phone ? (
+        <p className="mt-3 text-[0.875rem] leading-relaxed text-ink-muted">
+          {name} chose not to leave contact details. Find each other at the event, or ask them
+          to add a way to reach them to their profile.
+        </p>
+      ) : (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {phone ? (
+            <a
+              href={`https://wa.me/${digits}`}
+              target="_blank"
+              rel="noreferrer"
+              className="btn btn-dark btn-sm"
+            >
+              WhatsApp {phone}
+            </a>
+          ) : null}
+          {phone ? (
+            <a href={`tel:${phone.replace(/[^\d+]/g, "")}`} className="btn btn-secondary btn-sm">
+              Call
+            </a>
+          ) : null}
+          {email ? (
+            <a href={`mailto:${email}`} className="btn btn-secondary btn-sm">
+              {email}
+            </a>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }
@@ -771,7 +963,15 @@ function Confetti() {
  * Accept or decline an incoming request: round dismiss button on the left, one
  * full width dark accept pill next to it.
  */
-function RequestActions({ eventId, connectionId }: { eventId: string; connectionId: string }) {
+function RequestActions({
+  eventId,
+  connectionId,
+  otherName,
+}: {
+  eventId: string;
+  connectionId: string;
+  otherName: string;
+}) {
   const [done, setDone] = useState<string | null>(null);
   if (done) {
     return (
@@ -801,7 +1001,7 @@ function RequestActions({ eventId, connectionId }: { eventId: string; connection
         onClick={async () => {
           const { respondToConnection } = await import("@/lib/firebase/db");
           await respondToConnection(eventId, connectionId, "accepted");
-          setDone("Accepted. We sent both of you an email with the contact details.");
+          setDone(`Accepted. ${otherName}'s contact details appear under Connected in a moment.`);
         }}
       >
         <CheckIcon size={15} />

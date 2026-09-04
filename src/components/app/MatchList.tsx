@@ -16,16 +16,18 @@ export function MatchList({
   matches,
   me,
   onConnect,
+  onOpenProfile,
   pendingIds,
 }: {
   event: PairspaceEvent;
   matches: MatchResult[];
   me: Participant;
   onConnect: (target: Participant, message: string) => Promise<void>;
+  /** Tapping the portrait or the name opens the full profile. */
+  onOpenProfile: (target: Participant) => void;
   pendingIds: string[];
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
-  const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
   if (!matches.length) {
@@ -74,18 +76,28 @@ export function MatchList({
                   background: participant.photoUrl ? "var(--color-sunken)" : tintFor(participant.id),
                 }}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={participant.photoUrl ?? poolAvatar(participant.id)}
-                  alt={participant.firstName}
-                  className="absolute inset-0 h-full w-full object-cover object-top"
-                  loading="lazy"
+                <button
+                  type="button"
+                  className="absolute inset-0 block h-full w-full cursor-pointer"
+                  aria-label={`Open the profile of ${participant.firstName}`}
+                  onClick={() => onOpenProfile(participant)}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={participant.photoUrl ?? poolAvatar(participant.id)}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover object-top"
+                    loading="lazy"
+                  />
+                </button>
+
+                <div
+                  className="scrim-b pointer-events-none absolute inset-x-0 bottom-0 h-2/3"
+                  aria-hidden="true"
                 />
 
-                <div className="scrim-b absolute inset-x-0 bottom-0 h-2/3" aria-hidden="true" />
-
                 <span
-                  className="glass-chip absolute left-4 top-4"
+                  className="glass-chip pointer-events-none absolute left-4 top-4"
                   style={{
                     color:
                       strength.tone === "high"
@@ -99,7 +111,7 @@ export function MatchList({
                   {strength.label}
                 </span>
 
-                <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-5">
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-5">
                   <div className="min-w-0">
                     <p className="flex items-center gap-2 text-[0.8125rem] font-medium text-white/85">
                       <span
@@ -110,9 +122,13 @@ export function MatchList({
                       />
                       {participant.open ? "Open to pair up" : "Found a partner"}
                     </p>
-                    <p className="mt-0.5 truncate font-display text-[1.5rem] font-bold tracking-[-0.02em] text-white">
+                    <button
+                      type="button"
+                      className="pointer-events-auto mt-0.5 block max-w-full cursor-pointer truncate text-left font-display text-[1.5rem] font-bold tracking-[-0.02em] text-white"
+                      onClick={() => onOpenProfile(participant)}
+                    >
                       {participant.firstName}
-                    </p>
+                    </button>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {categories.map((label) => (
                         <span
@@ -136,7 +152,7 @@ export function MatchList({
                     }
                     aria-expanded={isOpen}
                     disabled={pending || !participant.open}
-                    className="icon-btn h-12 w-12 shrink-0 border-0! text-white disabled:cursor-not-allowed"
+                    className="icon-btn pointer-events-auto h-12 w-12 shrink-0 border-0! text-white disabled:cursor-not-allowed"
                     style={
                       pending
                         ? {
@@ -146,14 +162,7 @@ export function MatchList({
                           }
                         : { background: "var(--gradient-accent)", boxShadow: "var(--shadow-accent)" }
                     }
-                    onClick={() => {
-                      if (isOpen) {
-                        setOpenId(null);
-                        return;
-                      }
-                      setOpenId(participant.id);
-                      setMessage(`Hi ${participant.firstName}, want to pair up at ${event.name}?`);
-                    }}
+                    onClick={() => setOpenId(isOpen ? null : participant.id)}
                   >
                     {pending ? <CheckIcon size={18} /> : <SendIcon size={18} />}
                   </button>
@@ -174,53 +183,27 @@ export function MatchList({
                 ) : null}
                 {pending ? (
                   <p className="mt-1.5 text-[0.8125rem] font-medium text-accent">
-                    Request sent. You get an email when {participant.firstName} answers.
+                    Request sent. You hear back as soon as {participant.firstName} answers.
                   </p>
                 ) : null}
 
                 {isOpen && !pending ? (
-                  <div className="mt-4 rounded-lg border border-line bg-sunken p-4">
-                    <label className="label" htmlFor={`msg-${participant.id}`}>
-                      Your message to {participant.firstName}
-                    </label>
-                    <textarea
-                      id={`msg-${participant.id}`}
-                      className="field"
-                      rows={2}
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      maxLength={300}
+                  <div className="mt-4">
+                    <ConnectComposer
+                      event={event}
+                      participant={participant}
+                      busy={busy}
+                      onCancel={() => setOpenId(null)}
+                      onSend={async (message) => {
+                        setBusy(true);
+                        try {
+                          await onConnect(participant, message);
+                          setOpenId(null);
+                        } finally {
+                          setBusy(false);
+                        }
+                      }}
                     />
-                    <p className="mt-2 text-[0.8125rem] text-ink-faint">
-                      {participant.firstName} sees your first name and this message. Your email
-                      address is shared only if the request is accepted.
-                    </p>
-                    <div className="mt-3 flex items-center gap-2">
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-sm"
-                        disabled={busy}
-                        onClick={async () => {
-                          setBusy(true);
-                          try {
-                            await onConnect(participant, message);
-                            setOpenId(null);
-                          } finally {
-                            setBusy(false);
-                          }
-                        }}
-                      >
-                        {busy ? "Sending" : "Send request"}
-                        <SendIcon size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-sm"
-                        onClick={() => setOpenId(null)}
-                      >
-                        Cancel
-                      </button>
-                    </div>
                   </div>
                 ) : null}
               </div>
@@ -231,6 +214,62 @@ export function MatchList({
       <p className="mt-5 text-center text-[0.8125rem] text-ink-faint">
         You appear in this list as {me.firstName}. You can hide yourself at any time.
       </p>
+    </div>
+  );
+}
+
+/**
+ * The message box of a request. Used inside a card and inside the profile
+ * sheet, so both places send exactly the same thing.
+ */
+export function ConnectComposer({
+  event,
+  participant,
+  busy,
+  onSend,
+  onCancel,
+}: {
+  event: PairspaceEvent;
+  participant: Participant;
+  busy: boolean;
+  onSend: (message: string) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [message, setMessage] = useState(
+    `Hi ${participant.firstName}, want to pair up at ${event.name}?`,
+  );
+  return (
+    <div className="rounded-lg border border-line bg-sunken p-4">
+      <label className="label" htmlFor={`msg-${participant.id}`}>
+        Your message to {participant.firstName}
+      </label>
+      <textarea
+        id={`msg-${participant.id}`}
+        className="field"
+        rows={2}
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        maxLength={300}
+        autoFocus
+      />
+      <p className="mt-2 text-[0.8125rem] text-ink-faint">
+        {participant.firstName} sees your first name and this message. Your contact details
+        are shared only if the request is accepted.
+      </p>
+      <div className="mt-3 flex items-center gap-2">
+        <button
+          type="button"
+          className="btn btn-primary btn-sm"
+          disabled={busy}
+          onClick={() => void onSend(message)}
+        >
+          {busy ? "Sending" : "Send request"}
+          <SendIcon size={14} />
+        </button>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }

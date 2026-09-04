@@ -1,9 +1,9 @@
 "use client";
 
 import {
-  addDoc,
   collection,
   deleteDoc,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -26,6 +26,8 @@ import type {
   EventDraft,
   PairspaceEvent,
   Participant,
+  ParticipantContact,
+  SharedContacts,
   Watcher,
 } from "../types";
 
@@ -145,10 +147,19 @@ export async function findMyParticipant(
   return snap.empty ? null : (snap.docs[0].data() as Participant);
 }
 
+/**
+ * Writes the public profile and, right after it, the private contact document.
+ * Two writes rather than one batch, because the contact rules look up the
+ * profile to check ownership and need it to exist first.
+ *
+ * Profiles saved before contact details moved out of the public document still
+ * carry an email there. Saving again strips it.
+ */
 export async function saveParticipant(
   eventId: string,
   uid: string,
   data: Omit<Participant, "id" | "eventId" | "uid" | "createdAt" | "updatedAt" | "editToken">,
+  contact: { email: string; phone: string },
   existingId?: string,
 ): Promise<Participant> {
   const { db } = firebase();
@@ -166,8 +177,44 @@ export async function saveParticipant(
     updatedAt: now(),
     editToken: previous?.exists() ? (previous.data().editToken as string) : token(),
   };
-  await setDoc(ref, record, { merge: true });
+  await setDoc(
+    ref,
+    { ...record, email: deleteField(), emailVerified: deleteField() },
+    { merge: true },
+  );
+
+  const contactRecord: ParticipantContact = {
+    uid,
+    email: contact.email.trim().toLowerCase(),
+    phone: contact.phone.trim(),
+    updatedAt: now(),
+  };
+  await setDoc(doc(ref, "private", "contact"), contactRecord);
   return record;
+}
+
+/** The participant's own contact details. Null for profiles that never saved any. */
+export async function getMyContact(
+  eventId: string,
+  participantId: string,
+): Promise<ParticipantContact | null> {
+  const { db } = firebase();
+  const snap = await getDoc(doc(db, "events", eventId, "participants", participantId, "private", "contact"));
+  return snap.exists() ? (snap.data() as ParticipantContact) : null;
+}
+
+/** Contacts released to this participant through accepted connections. */
+export function watchSharedContacts(
+  eventId: string,
+  participantId: string,
+  onChange: (shared: SharedContacts | null) => void,
+): Unsubscribe {
+  const { db } = firebase();
+  return onSnapshot(
+    doc(db, "events", eventId, "participants", participantId, "private", "shared"),
+    (snap) => onChange(snap.exists() ? (snap.data() as SharedContacts) : null),
+    () => onChange(null),
+  );
 }
 
 export async function setParticipantOpen(eventId: string, participantId: string, open: boolean) {
@@ -180,7 +227,13 @@ export async function setParticipantOpen(eventId: string, participantId: string,
 
 export async function deleteParticipant(eventId: string, participantId: string) {
   const { db } = firebase();
-  await deleteDoc(doc(db, "events", eventId, "participants", participantId));
+  const ref = doc(db, "events", eventId, "participants", participantId);
+  // Private documents first: their rules look up the profile to check ownership.
+  await Promise.all([
+    deleteDoc(doc(ref, "private", "contact")).catch(() => undefined),
+    deleteDoc(doc(ref, "private", "shared")).catch(() => undefined),
+  ]);
+  await deleteDoc(ref);
 }
 
 /* Watchers ----------------------------------------------------------------- */
@@ -223,7 +276,11 @@ export async function requestConnection(
   message: string,
 ): Promise<Connection> {
   const { db } = firebase();
-  const ref = await addDoc(collection(db, "events", eventId, "connections"), {
+  // The id goes in with the first write. A second write to add it would be
+  // refused, the update rule only allows the status fields to change.
+  const ref = doc(collection(db, "events", eventId, "connections"));
+  const record: Connection = {
+    id: ref.id,
     eventId,
     fromParticipantId,
     toParticipantId,
@@ -232,19 +289,9 @@ export async function requestConnection(
     createdAt: now(),
     respondedAt: null,
     contactSharedAt: null,
-  });
-  await updateDoc(ref, { id: ref.id });
-  return {
-    id: ref.id,
-    eventId,
-    fromParticipantId,
-    toParticipantId,
-    message,
-    status: "pending",
-    createdAt: now(),
-    respondedAt: null,
-    contactSharedAt: null,
   };
+  await setDoc(ref, record);
+  return record;
 }
 
 export async function respondToConnection(
@@ -266,6 +313,7 @@ export function watchConnections(
   const { db } = firebase();
   return onSnapshot(
     query(collection(db, "events", eventId, "connections"), orderBy("createdAt", "desc"), limit(300)),
-    (snap) => onChange(snap.docs.map((d) => d.data() as Connection)),
+    // Older records were written without an id field, so take it from the document.
+    (snap) => onChange(snap.docs.map((d) => ({ ...(d.data() as Connection), id: d.id }))),
   );
 }

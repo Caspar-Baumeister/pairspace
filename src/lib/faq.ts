@@ -31,7 +31,7 @@ export const FAQ_ITEMS: FaqItem[] = [
   },
   {
     q: "How is participant data protected?",
-    a: "Email addresses are never visible to other participants. Profiles are scoped to a single event, never indexed by search engines, and deleted automatically once the retention window closes.",
+    a: "Contact details are never visible to other participants. Each person decides whether to leave an email address, a WhatsApp number, or nothing at all and just check the link. Profiles are scoped to a single event, never indexed by search engines, and deleted automatically once the retention window closes.",
   },
   {
     q: "Can I see how balanced my event is?",

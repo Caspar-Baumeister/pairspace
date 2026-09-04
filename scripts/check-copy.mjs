@@ -31,7 +31,8 @@ function check(file) {
     if (props) texts.push(...props);
 
     for (const t of texts) {
-      if (/\w-\w/.test(t) && !/https?:|@|\.(app|com|de)\b|[A-Za-z]+-[a-z]+-[a-z]+/.test(t)) {
+      // L-basing is the established acro term, the hyphen is part of the word.
+      if (/\w-\w/.test(t) && !/https?:|@|\.(app|com|de)\b|[A-Za-z]+-[a-z]+-[a-z]+|L-bas/.test(t)) {
         findings.push(`${file}:${i + 1}  ${t.trim()}`);
       }
     }

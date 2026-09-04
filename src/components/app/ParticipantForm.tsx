@@ -4,7 +4,14 @@ import { useEffect, useState } from "react";
 
 import { PhotoField, type PhotoSelection } from "@/components/app/PhotoField";
 import { usePersistentState } from "@/lib/hooks/usePersistentState";
-import type { EventQuestion, PairspaceEvent, Participant, ParticipantAnswer } from "@/lib/types";
+import type {
+  ContactMethod,
+  EventQuestion,
+  PairspaceEvent,
+  Participant,
+  ParticipantAnswer,
+  ParticipantContact,
+} from "@/lib/types";
 
 export interface ParticipantFormValue {
   firstName: string;
@@ -12,12 +19,27 @@ export interface ParticipantFormValue {
   lookingForIds: string[];
   answers: ParticipantAnswer[];
   note: string;
+  contactMethods: ContactMethod[];
   email: string;
+  phone: string;
   notifyOnMatch: boolean;
 }
 
 export interface ParticipantSubmission extends ParticipantFormValue {
   photo: PhotoSelection;
+}
+
+const CONTACT_OPTIONS: { id: ContactMethod; label: string; hint: string }[] = [
+  { id: "email", label: "Email", hint: "You get an email for requests and for new matches." },
+  { id: "whatsapp", label: "WhatsApp or phone", hint: "Your number is shared once you both accept." },
+  { id: "link", label: "Only through this link", hint: "Nothing leaves this page. Come back here to see requests." },
+];
+
+export const EMAIL_PATTERN = /.+@.+\..+/;
+
+/** At least seven digits, so a typo like a single area code does not pass. */
+export function phoneLooksValid(phone: string): boolean {
+  return phone.replace(/\D/g, "").length >= 7;
 }
 
 function emptyValue(): ParticipantFormValue {
@@ -27,7 +49,9 @@ function emptyValue(): ParticipantFormValue {
     lookingForIds: [],
     answers: [],
     note: "",
+    contactMethods: ["email"],
     email: "",
+    phone: "",
     notifyOnMatch: true,
   };
 }
@@ -35,11 +59,13 @@ function emptyValue(): ParticipantFormValue {
 export function ParticipantForm({
   event,
   existing,
+  existingContact,
   onSubmit,
   busy,
 }: {
   event: PairspaceEvent;
   existing?: Participant | null;
+  existingContact?: ParticipantContact | null;
   onSubmit: (value: ParticipantSubmission) => void | Promise<void>;
   busy?: boolean;
 }) {
@@ -61,16 +87,26 @@ export function ParticipantForm({
 
   useEffect(() => {
     if (!existing) return;
+    const email = existingContact?.email ?? "";
+    const phone = existingContact?.phone ?? "";
+    // Profiles from before contact methods existed only had an email.
+    const methods: ContactMethod[] = existing.contactMethods?.length
+      ? existing.contactMethods
+      : email
+        ? ["email"]
+        : ["link"];
     setValue({
       firstName: existing.firstName,
       categoryIds: existing.categoryIds,
       lookingForIds: existing.lookingForIds,
       answers: existing.answers,
       note: existing.note,
-      email: existing.email,
+      contactMethods: methods,
+      email,
+      phone,
       notifyOnMatch: existing.notifyOnMatch,
     });
-  }, [existing, setValue]);
+  }, [existing, existingContact, setValue]);
 
   useEffect(() => {
     if (restored) setNoticeVisible(true);
@@ -80,6 +116,16 @@ export function ParticipantForm({
     setValue((v) => {
       const has = v[list].includes(id);
       return { ...v, [list]: has ? v[list].filter((x) => x !== id) : [...v[list], id] };
+    });
+  }
+
+  function toggleContact(id: ContactMethod) {
+    setValue((v) => {
+      const has = v.contactMethods.includes(id);
+      if (has) return { ...v, contactMethods: v.contactMethods.filter((m) => m !== id) };
+      // "Only through this link" rules the other two out, and the other way round.
+      if (id === "link") return { ...v, contactMethods: ["link"] };
+      return { ...v, contactMethods: [...v.contactMethods.filter((m) => m !== "link"), id] };
     });
   }
 
@@ -106,10 +152,19 @@ export function ParticipantForm({
   const photoMissing =
     event.allowPhotos && event.requirePhotos && !photo.preview && !existing?.photoUrl;
 
+  const wantsEmail = value.contactMethods.includes("email");
+  const wantsPhone = value.contactMethods.includes("whatsapp");
+  const linkOnly = value.contactMethods.includes("link");
+
+  const contactProblems: string[] = [];
+  if (!value.contactMethods.length) contactProblems.push("choose how people can reach you");
+  if (wantsEmail && !EMAIL_PATTERN.test(value.email)) contactProblems.push("enter a valid email address");
+  if (wantsPhone && !phoneLooksValid(value.phone)) contactProblems.push("enter a phone number with country code");
+
   const valid =
     value.firstName.trim().length >= 2 &&
     value.categoryIds.length > 0 &&
-    /.+@.+\..+/.test(value.email) &&
+    contactProblems.length === 0 &&
     missingRequired.length === 0 &&
     !photoMissing;
 
@@ -120,7 +175,13 @@ export function ParticipantForm({
         e.preventDefault();
         setTouched(true);
         if (!valid) return;
-        await onSubmit({ ...value, photo });
+        await onSubmit({
+          ...value,
+          email: wantsEmail ? value.email : "",
+          phone: wantsPhone ? value.phone : "",
+          notifyOnMatch: wantsEmail && value.notifyOnMatch,
+          photo,
+        });
         if (isNew) clear();
       }}
     >
@@ -217,6 +278,9 @@ export function ParticipantForm({
             {q.label}
             {q.required ? <span className="ml-1 text-accent">required</span> : null}
           </label>
+          {q.helpText ? (
+            <p className="-mt-1 mb-2.5 text-[0.8125rem] text-ink-faint">{q.helpText}</p>
+          ) : null}
           {q.type === "text" ? (
             <textarea
               id={`q-${q.id}`}
@@ -234,7 +298,7 @@ export function ParticipantForm({
                   <button
                     key={o}
                     type="button"
-                    className="chip"
+                    className="chip h-auto min-h-10 py-2 text-left whitespace-normal"
                     data-active={selected}
                     onClick={() => {
                       if (q.type === "single") setAnswer(q, selected ? "" : o);
@@ -250,7 +314,6 @@ export function ParticipantForm({
               })}
             </div>
           )}
-          {q.helpText ? <p className="mt-1.5 text-[0.8125rem] text-ink-faint">{q.helpText}</p> : null}
         </div>
       ))}
 
@@ -269,39 +332,94 @@ export function ParticipantForm({
         />
       </div>
 
-      <div>
-        <label className="label" htmlFor="email">
-          Your email address
-        </label>
-        <input
-          id="email"
-          type="email"
-          className="field"
-          value={value.email}
-          onChange={(e) => setValue((v) => ({ ...v, email: e.target.value }))}
-          placeholder="you@example.com"
-          autoComplete="email"
-        />
-        <p className="mt-1.5 text-[0.8125rem] text-ink-faint">
-          Hidden from everyone. It is shared only with a person you both agreed to connect with.
+      <fieldset className="rounded-xl border border-line bg-sunken/60 p-4 sm:p-5">
+        <legend className="label px-1">How can people reach you</legend>
+        <p className="-mt-1 text-[0.8125rem] text-ink-faint">
+          Hidden from everyone. Shared only with a person you both agreed to connect with.
         </p>
-      </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {CONTACT_OPTIONS.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              className="chip"
+              data-active={value.contactMethods.includes(o.id)}
+              onClick={() => toggleContact(o.id)}
+              title={o.hint}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
 
-      <label className="flex items-start gap-3">
-        <input
-          type="checkbox"
-          className="mt-1 h-4 w-4 accent-[var(--color-accent)]"
-          checked={value.notifyOnMatch}
-          onChange={(e) => setValue((v) => ({ ...v, notifyOnMatch: e.target.checked }))}
-        />
-        <span className="text-[0.875rem] text-ink-secondary">
-          Email me when a matching participant joins this event
-        </span>
-      </label>
+        {wantsEmail ? (
+          <div className="mt-4">
+            <label className="label" htmlFor="email">
+              Your email address
+            </label>
+            <input
+              id="email"
+              type="email"
+              className="field"
+              value={value.email}
+              onChange={(e) => setValue((v) => ({ ...v, email: e.target.value }))}
+              placeholder="you@example.com"
+              autoComplete="email"
+              inputMode="email"
+            />
+            <label className="mt-3 flex items-start gap-3">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 accent-[var(--color-accent)]"
+                checked={value.notifyOnMatch}
+                onChange={(e) => setValue((v) => ({ ...v, notifyOnMatch: e.target.checked }))}
+              />
+              <span className="text-[0.875rem] text-ink-secondary">
+                Email me when a matching participant joins this event
+              </span>
+            </label>
+          </div>
+        ) : null}
+
+        {wantsPhone ? (
+          <div className="mt-4">
+            <label className="label" htmlFor="phone">
+              Your WhatsApp or phone number
+            </label>
+            <input
+              id="phone"
+              type="tel"
+              className="field"
+              value={value.phone}
+              onChange={(e) => setValue((v) => ({ ...v, phone: e.target.value }))}
+              placeholder="+49 170 1234567"
+              autoComplete="tel"
+              inputMode="tel"
+              maxLength={40}
+            />
+            <p className="mt-1.5 text-[0.8125rem] text-ink-faint">
+              With country code, so people from abroad can reach you.
+            </p>
+          </div>
+        ) : null}
+
+        {linkOnly ? (
+          <p className="mt-4 text-[0.875rem] leading-relaxed text-ink-secondary">
+            We cannot notify you. Open this link again to see requests, and whoever you pair up
+            with will look for you at the event.
+          </p>
+        ) : !wantsEmail && wantsPhone ? (
+          <p className="mt-3 text-[0.8125rem] text-ink-faint">
+            Without an email address we cannot notify you about requests. Open this link again
+            to see them.
+          </p>
+        ) : null}
+      </fieldset>
 
       {touched && !valid ? (
         <p className="text-[0.875rem] text-danger">
-          Please add your name, at least one category, a valid email address
+          Please add your name, at least one category
+          {contactProblems.length ? `, ${contactProblems.join(", ")}` : ""}
           {missingRequired.length
             ? `, answer ${missingRequired.map((q) => q.label).join(", ")}`
             : ""}

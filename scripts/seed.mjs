@@ -91,13 +91,19 @@ for (const [i, p] of people.entries()) {
     note: "",
     photoUrl: null,
     photoPath: null,
-    email: `${p.firstName.toLowerCase()}@example.com`,
-    emailVerified: false,
+    contactMethods: i % 3 === 2 ? ["link"] : i % 3 === 1 ? ["whatsapp"] : ["email"],
     open: true,
     notifyOnMatch: true,
     createdAt: now - i * 60000,
     updatedAt: now,
     editToken: `seedtoken${i}`,
+  });
+  // Contact details live in the private subcollection, never on the profile.
+  await db.doc(`events/${eventId}/participants/${id}/private/contact`).set({
+    uid: `seed-uid-${i}`,
+    email: i % 3 === 0 ? `${p.firstName.toLowerCase()}@example.com` : "",
+    phone: i % 3 === 1 ? `+49 170 000000${i}` : "",
+    updatedAt: now,
   });
 }
 

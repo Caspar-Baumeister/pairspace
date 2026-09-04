@@ -115,10 +115,29 @@ Commit and push, the build starts on its own. Every push to `main` deploys.
 4. Apple Developer, your Services ID: add `joinpairspace.com` to Domains and
    `https://joinpairspace.com/__/auth/handler` to Return URLs. Keep the
    firebaseapp.com entry as well, both are used
-5. Resend: verify `joinpairspace.com` as a sending domain, then set
-   `MAIL_FROM` to something like `Pairspace <hello@joinpairspace.com>` and
-   redeploy the functions. Until then mail goes out from `onboarding@resend.dev`,
-   which lands in spam more often
+5. **Resend: verify `joinpairspace.com` as a sending domain. This is not
+   optional.** With the test sender `onboarding@resend.dev` Resend only
+   delivers to the address of the Resend account itself and answers every
+   other recipient with a 403. That is why participant mail was silent.
+   Steps:
+   1. https://resend.com/domains, Add domain, `joinpairspace.com`, region EU
+   2. Copy the DNS records it shows (one TXT for SPF, one TXT for DKIM, one
+      MX for bounces) into Vercel DNS at
+      https://vercel.com/caspar-baumeister-team/~/domains
+   3. Wait for the green "Verified" in Resend, usually a few minutes
+   4. Set the sender and redeploy:
+
+      ```bash
+      printf 'SITE_URL=https://joinpairspace.com\nMAIL_FROM=Pairspace <hello@joinpairspace.com>\n' > functions/.env
+      firebase deploy --only functions --project pairspace-live
+      ```
+
+   A failed send now shows up as `[mail failed]` in the function logs, a
+   successful one as `[mail sent]`:
+
+   ```bash
+   firebase functions:log --project pairspace-live
+   ```
 
 ---
 

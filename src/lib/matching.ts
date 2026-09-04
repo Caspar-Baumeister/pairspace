@@ -54,7 +54,12 @@ export function rankMatches(
         const shared = overlap(mine, theirs);
         if (shared.length) {
           score += Math.min(15, 30 / Math.max(1, matchingQuestions.length));
-          reasons.push(`${q.label}: ${shared.join(", ")}`);
+          // Long skill lists would flood the card, so name at most two and count the rest.
+          reasons.push(
+            shared.length > 2
+              ? `${q.label}: ${shared.length} in common`
+              : `${q.label}: ${shared.join(", ")}`,
+          );
         } else if (q.type === "single" && isAdjacentLevel(q, mine[0], theirs[0])) {
           score += 6;
           reasons.push(`${q.label}: close to yours`);

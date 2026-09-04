@@ -4,6 +4,8 @@
  * Firestore layout
  *   events/{eventId}
  *   events/{eventId}/participants/{participantId}
+ *   events/{eventId}/participants/{participantId}/private/contact   own contact details, owner only
+ *   events/{eventId}/participants/{participantId}/private/shared    contacts released to this person
  *   events/{eventId}/watchers/{watcherId}        email only, no profile
  *   events/{eventId}/connections/{connectionId}  a contact exchange between two participants
  *   events/{eventId}/stats/rollup                counters kept by Cloud Functions
@@ -80,6 +82,44 @@ export interface ParticipantAnswer {
   value: string | string[];
 }
 
+/**
+ * How a participant wants to be reached.
+ *   email     notifications by email, address released on an accepted connection
+ *   whatsapp  phone number released on an accepted connection, no notifications
+ *   link      nothing leaves the event page, the person checks back for requests
+ */
+export type ContactMethod = "email" | "whatsapp" | "link";
+
+/**
+ * Private contact details. Lives in participants/{id}/private/contact, readable
+ * only by the participant and the Cloud Functions. Never in the public profile.
+ */
+export interface ParticipantContact {
+  /** Owner uid, checked by the security rules. */
+  uid: string;
+  email: string;
+  /** Phone number as typed, with country code. Empty when not given. */
+  phone: string;
+  updatedAt: number;
+}
+
+/** One contact released to a participant after both sides accepted. */
+export interface SharedContact {
+  participantId: string;
+  connectionId: string;
+  firstName: string;
+  email: string;
+  phone: string;
+  sharedAt: number;
+}
+
+/** participants/{id}/private/shared, written by the Cloud Functions only. */
+export interface SharedContacts {
+  uid: string;
+  contacts: Record<string, SharedContact>;
+  updatedAt: number;
+}
+
 export interface Participant {
   id: string;
   eventId: string;
@@ -94,11 +134,11 @@ export interface Participant {
   photoUrl: string | null;
   /** Storage path, kept so the photo can be deleted with the profile. */
   photoPath: string | null;
-  /** Never shown to other participants. Only released through an accepted connection. */
-  email: string;
-  emailVerified: boolean;
+  /** Which channels this person offered. The details themselves live in private/contact. */
+  contactMethods: ContactMethod[];
   /** Still looking for a partner. Set to false once someone found one. */
   open: boolean;
+  /** Email when a matching participant joins. Only meaningful with an email address. */
   notifyOnMatch: boolean;
   createdAt: number;
   updatedAt: number;
