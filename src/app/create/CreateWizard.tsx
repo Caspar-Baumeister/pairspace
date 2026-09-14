@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AppShell } from "@/components/app/AppShell";
+import { MascotCheer, MascotThink } from "@/components/mascot/Scenes";
 import { CategoryEditor } from "@/components/app/CategoryEditor";
 import { Notice } from "@/components/app/Notice";
 import { QuestionEditor } from "@/components/app/QuestionEditor";
@@ -344,7 +345,10 @@ export function CreateWizard() {
           <section className="space-y-6">
             {createdSlug ? (
               <>
-                <header>
+                <div className="pop mx-auto w-full max-w-[300px]">
+                  <MascotCheer className="w-full" label="Kai and Mo cheer" />
+                </div>
+                <header className="text-center">
                   <p className="eyebrow">Your event is live</p>
                   <h1 className="display-m mt-3">Share this link with your participants</h1>
                   <p className="mt-3 text-[0.9375rem] text-ink-muted">
@@ -363,6 +367,9 @@ export function CreateWizard() {
               </>
             ) : (
               <>
+                <div className="pop mx-auto w-[160px]">
+                  <MascotThink className="w-full" label="Kai thinks it over" />
+                </div>
                 <header>
                   <p className="eyebrow">Last step</p>
                   <h1 className="display-m mt-3">

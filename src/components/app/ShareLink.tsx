@@ -22,7 +22,7 @@ export function ShareLink({ slug, compact = false }: { slug: string; compact?: b
     QRCode.toDataURL(url, {
       width: 640,
       margin: 2,
-      color: { dark: "#221418", light: "#ffffff" },
+      color: { dark: "#1E2A38", light: "#ffffff" },
     }).then((dataUrl) => {
       if (live) setQr(dataUrl);
     });

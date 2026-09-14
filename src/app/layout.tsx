@@ -1,8 +1,7 @@
 import type { Metadata, Viewport } from "next";
 
 // Self hosted so no request ever leaves the page to a font CDN.
-import "@fontsource-variable/inter";
-import "@fontsource-variable/inter-tight";
+import "@fontsource-variable/nunito";
 import "./globals.css";
 import { AuthProvider } from "@/lib/firebase/auth";
 

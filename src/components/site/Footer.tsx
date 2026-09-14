@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { MascotPeek } from "@/components/mascot/Scenes";
 import { Logo } from "./Logo";
 
 const columns = [
@@ -7,51 +8,36 @@ const columns = [
     title: "Product",
     links: [
       { href: "/#how-it-works", label: "How it works" },
-      { href: "/#feedback", label: "Feedback and ideas" },
+      { href: "/#use-cases", label: "Use cases" },
+      { href: "/#faq", label: "Questions" },
       { href: "/create", label: "Create your event" },
-    ],
-  },
-  {
-    title: "Use cases",
-    links: [
-      { href: "/#use-cases", label: "Acro festivals" },
-      { href: "/#use-cases", label: "Dance events" },
-      { href: "/#use-cases", label: "Workshops and trainings" },
-      { href: "/#use-cases", label: "Hackathons and teams" },
     ],
   },
   {
     title: "Trust",
     links: [
-      { href: "/#privacy", label: "Privacy by design" },
+      { href: "/#privacy", label: "What it is not" },
       { href: "/privacy", label: "Privacy policy" },
       { href: "/terms", label: "Terms" },
-      { href: "/#faq", label: "Questions" },
+      { href: "/#feedback", label: "Feedback" },
     ],
   },
 ];
 
 export function Footer() {
   return (
-    <footer className="relative overflow-hidden border-t border-line bg-surface px-6 pb-10 pt-20">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 top-0 h-[420px] w-[860px] -translate-x-1/2 opacity-60"
-      >
-        <svg viewBox="0 0 860 420" fill="none" className="h-full w-full">
-          <circle cx="430" cy="420" r="180" stroke="var(--color-line)" />
-          <circle cx="430" cy="420" r="290" stroke="var(--color-line)" />
-          <circle cx="430" cy="420" r="400" stroke="var(--color-line)" />
-          <path d="M250 420a180 180 0 0 1 90 -156" stroke="#0D8A5E" strokeOpacity="0.22" strokeWidth="1.5" />
-        </svg>
+    <footer className="relative border-t-2 border-line bg-sunken px-6 pb-8 pt-16">
+      <div className="pointer-events-none absolute -top-[2px] right-6 w-20 sm:right-16 sm:w-24" aria-hidden="true">
+        <div className="translate-y-[-100%]">
+          <MascotPeek className="w-full" />
+        </div>
       </div>
 
-      <div className="relative mx-auto grid w-full max-w-[1160px] gap-12 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+      <div className="mx-auto grid w-full max-w-[1120px] gap-10 sm:grid-cols-[1.6fr_1fr_1fr]">
         <div>
           <Logo />
-          <p className="mt-4 max-w-[30ch] text-[0.875rem] leading-relaxed text-ink-muted">
-            Participant matching for events. You provide the structure, participants do the
-            partnering themselves.
+          <p className="mt-4 max-w-[30ch] text-[0.9375rem] font-semibold leading-relaxed text-ink-muted">
+            Participant matching for events. You set up the space, participants find each other.
           </p>
           <Link href="/create" className="btn btn-secondary btn-sm mt-6">
             Create your event
@@ -60,15 +46,13 @@ export function Footer() {
 
         {columns.map((col) => (
           <div key={col.title}>
-            <p className="text-[0.75rem] font-semibold uppercase tracking-[0.14em] text-ink-faint">
-              {col.title}
-            </p>
+            <p className="eyebrow">{col.title}</p>
             <ul className="mt-4 space-y-2.5">
               {col.links.map((l) => (
                 <li key={l.label}>
                   <Link
                     href={l.href}
-                    className="text-[0.875rem] text-ink-secondary transition-colors hover:text-accent"
+                    className="text-[0.9375rem] font-bold text-ink-secondary transition-colors hover:text-accent-deep"
                   >
                     {l.label}
                   </Link>
@@ -79,11 +63,11 @@ export function Footer() {
         ))}
       </div>
 
-      <div className="relative mx-auto mt-16 flex w-full max-w-[1160px] flex-col gap-3 border-t border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-[0.8125rem] text-ink-faint">
-          Pairspace. Participant matching for events, not a dating service and not a social network.
+      <div className="mx-auto mt-12 flex w-full max-w-[1120px] flex-col gap-2 border-t-2 border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-[0.8125rem] font-semibold text-ink-faint">
+          Pairspace. Not a dating service, not a social network. Just partners for your event.
         </p>
-        <p className="text-[0.8125rem] text-ink-faint">Come in pairs.</p>
+        <p className="text-[0.8125rem] font-extrabold text-ink-muted">Come in pairs.</p>
       </div>
     </footer>
   );

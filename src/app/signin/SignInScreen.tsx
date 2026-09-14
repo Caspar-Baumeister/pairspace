@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 import { AppShell } from "@/components/app/AppShell";
+import { MascotWave } from "@/components/mascot/Scenes";
 import { SignInButtons } from "@/components/app/SignInButtons";
 import { useAuth } from "@/lib/firebase/auth";
 
@@ -18,8 +19,11 @@ export function SignInScreen() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-[420px] pt-8">
-        <p className="eyebrow">Organizers</p>
+      <div className="mx-auto max-w-[420px] pt-4">
+        <div className="pop mx-auto w-[150px]">
+          <MascotWave className="w-full" label="Kai waves" />
+        </div>
+        <p className="eyebrow mt-4">Organizers</p>
         <h1 className="display-m mt-3">Welcome back</h1>
         <p className="mt-3 text-[0.9375rem] text-ink-muted">
           Sign in to find your event links again and see who is still looking for a partner.

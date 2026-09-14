@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app/AppShell";
+import { MascotFloat, MascotWave } from "@/components/mascot/Scenes";
 import { Notice } from "@/components/app/Notice";
 import { ShareLink } from "@/components/app/ShareLink";
 import { useAuth } from "@/lib/firebase/auth";
@@ -111,10 +112,15 @@ export function DashboardScreen() {
 
       <section className="mt-10">
         {events === null ? (
-          <p className="text-[0.9375rem] text-ink-faint">Loading your events</p>
+          <div className="pop mx-auto w-[220px] text-center" role="status">
+            <MascotFloat className="w-full" label="Loading your events" />
+          </div>
         ) : events.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-line-strong bg-surface p-10 text-center">
-            <h2 className="heading">No events yet</h2>
+          <div className="card p-8 text-center sm:p-10">
+            <div className="pop mx-auto w-[150px]">
+              <MascotWave className="w-full" label="Kai waves" />
+            </div>
+            <h2 className="heading mt-4">No events yet</h2>
             <p className="mx-auto mt-3 max-w-[42ch] text-[0.9375rem] text-ink-muted">
               Create your first event, define the categories your participants pick from, and share
               one link.

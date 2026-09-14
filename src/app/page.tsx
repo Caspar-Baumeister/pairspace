@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { Boundaries } from "@/components/landing/Boundaries";
+import { ClosingCta } from "@/components/landing/ClosingCta";
 import { Faq } from "@/components/landing/Faq";
 import { Feedback } from "@/components/landing/Feedback";
 import { Hero } from "@/components/landing/Hero";
@@ -98,6 +99,7 @@ export default function HomePage() {
         <Boundaries />
         <Faq />
         <Feedback />
+        <ClosingCta />
       </main>
       <Footer />
     </>

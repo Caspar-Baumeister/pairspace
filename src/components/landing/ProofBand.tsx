@@ -7,19 +7,25 @@ const items = [
   "Language tandems",
   "Tennis tournaments",
   "Retreats",
+  "Team sports",
 ];
 
 export function ProofBand() {
   return (
-    <section aria-label="Event types using participant matching" className="relative z-10 px-6 pb-6 pt-10">
-      <p className="text-center text-[0.875rem] text-ink-muted">
-        Built for events where the right partner decides the experience
+    <section aria-label="Event types using participant matching" className="px-5 pb-4 pt-2 sm:px-6">
+      <p className="text-center text-[0.875rem] font-extrabold uppercase tracking-[0.08em] text-ink-faint">
+        Built for events where the right partner decides everything
       </p>
-      <div className="no-scrollbar mx-auto mt-6 flex max-w-[1000px] flex-wrap items-center justify-center gap-x-8 gap-y-3">
-        {items.map((i) => (
+      <div className="no-scrollbar mt-5 flex gap-2.5 overflow-x-auto px-1 pb-2 sm:flex-wrap sm:justify-center sm:overflow-visible">
+        {items.map((i, n) => (
           <span
             key={i}
-            className="text-[0.9375rem] font-medium tracking-[-0.015em] text-ink-secondary transition-colors hover:text-ink"
+            className="chip shrink-0"
+            style={{
+              background: n % 3 === 0 ? "var(--color-accent-soft)" : n % 3 === 1 ? "var(--color-sun-soft)" : "var(--color-coral-soft)",
+              color: "var(--color-ink)",
+              cursor: "default",
+            }}
           >
             {i}
           </span>

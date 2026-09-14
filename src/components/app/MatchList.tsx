@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { MascotSearch } from "@/components/mascot/Scenes";
 import { poolAvatar, tintFor } from "@/lib/avatar";
 import { matchStrength } from "@/lib/matching";
 import type { MatchResult, PairspaceEvent, Participant } from "@/lib/types";
@@ -32,19 +33,12 @@ export function MatchList({
 
   if (!matches.length) {
     return (
-      <div className="rounded-xl border border-dashed border-line-strong bg-surface p-8 text-center">
-        <div className="mx-auto flex w-fit -space-x-3">
-          {["seat-a", "seat-b", "seat-c"].map((seed) => (
-            <span
-              key={seed}
-              className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-surface text-[1rem] font-semibold text-ink-faint"
-              style={{ background: tintFor(seed) }}
-            >
-              ?
-            </span>
-          ))}
-        </div>
-        <h3 className="heading mt-4">You are the first one here</h3>
+      <div className="card p-8 text-center">
+        <MascotSearch
+          className="mx-auto w-[180px] max-w-full"
+          label="Kai looks around, nobody has joined yet"
+        />
+        <h3 className="heading mt-2">You are the first one here</h3>
         <p className="mx-auto mt-2 max-w-[40ch] text-[0.9375rem] text-ink-muted">
           Nobody else has joined yet. You will get an email as soon as someone matching your search
           creates a profile.

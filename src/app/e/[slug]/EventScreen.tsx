@@ -14,9 +14,16 @@ import {
 import { Notice } from "@/components/app/Notice";
 import { ParticipantForm, type ParticipantSubmission } from "@/components/app/ParticipantForm";
 import { PersonSheet } from "@/components/app/PersonSheet";
+import {
+  MascotCheer,
+  MascotFloat,
+  MascotLift,
+  MascotOops,
+  MascotSearch,
+  MascotThink,
+} from "@/components/mascot/Scenes";
 import { Logo } from "@/components/site/Logo";
 import { PersonAvatar } from "@/components/ui/PersonAvatar";
-import { poolAvatar, tintFor } from "@/lib/avatar";
 import { useAuth } from "@/lib/firebase/auth";
 import {
   addWatcher,
@@ -221,13 +228,21 @@ export function EventScreen({ slug }: { slug: string }) {
   );
 
   if (status === "loading") {
-    return <Centered>Opening the event</Centered>;
+    return (
+      <Centered>
+        <MascotFloat className="mx-auto w-[220px] max-w-full" label="Mo floats while the event loads" />
+        <p className="mt-2 text-[0.9375rem] font-bold text-ink-muted" role="status">
+          Opening the event
+        </p>
+      </Centered>
+    );
   }
 
   if (status === "missing") {
     return (
       <Centered>
-        <h1 className="display-m">This event link does not exist</h1>
+        <MascotSearch className="mx-auto w-[200px] max-w-full" label="Kai searching for the event" />
+        <h1 className="display-m mt-2">This event link does not exist</h1>
         <p className="mt-3 text-[0.9375rem] text-ink-muted">
           Check the link with the person who sent it to you.
         </p>
@@ -241,6 +256,7 @@ export function EventScreen({ slug }: { slug: string }) {
   if (status === "error" || !event) {
     return (
       <Centered>
+        <MascotOops className="mx-auto mb-4 w-[180px] max-w-full" label="Mo looks worried" />
         <Notice tone="danger" title="Could not open this event">
           {error ?? "Unknown error"}
         </Notice>
@@ -338,10 +354,19 @@ export function EventScreen({ slug }: { slug: string }) {
         ) : null}
 
         {view === "choose" && !me ? (
-          <section className="mt-10">
-            <BubbleCluster />
+          <section className="mt-6">
+            <div className="relative mx-auto w-[min(300px,80vw)]">
+              <div
+                className="absolute inset-x-[10%] top-[8%] aspect-square rounded-full bg-accent-soft"
+                aria-hidden="true"
+              />
+              <MascotLift className="relative w-full" label="Kai lifts Mo into the air" />
+            </div>
+            <div className="speech speech-top mx-auto mt-3 w-fit max-w-[32ch] text-center">
+              Come in pairs. We help you find yours.
+            </div>
 
-            <div className="sheet mt-8 p-6 sm:p-8">
+            <div className="sheet mt-6 p-6 sm:p-8">
               <h2 className="heading">Your partner is already looking</h2>
               <p className="mt-2 max-w-[48ch] text-[0.9375rem] leading-relaxed text-ink-muted">
                 Create a profile for this event only, see who else is searching, and send a request
@@ -458,14 +483,8 @@ export function EventScreen({ slug }: { slug: string }) {
         {view === "joined" && me ? (
           <section className="mx-auto mt-6 max-w-[520px] text-center">
             <Confetti />
-            <div
-              className="mx-auto flex h-16 w-16 items-center justify-center rounded-full text-white shadow-(--shadow-accent)"
-              style={{ background: "var(--gradient-accent)" }}
-              aria-hidden="true"
-            >
-              <CheckIcon size={28} />
-            </div>
-            <h2 className="display-m mt-6 text-balance">You are all set, {me.firstName}!</h2>
+            <MascotCheer className="mx-auto w-[280px] max-w-full" label="Kai and Mo cheer for you" />
+            <h2 className="display-m mt-2 text-balance">You are all set, {me.firstName}!</h2>
             <p className="mx-auto mt-3 max-w-[42ch] text-[1.0625rem] leading-relaxed text-ink-muted">
               Your profile for {event.name} is live and other participants can find you now.
             </p>
@@ -767,7 +786,8 @@ export function EventScreen({ slug }: { slug: string }) {
         ) : null}
 
         {view === "notified" ? (
-          <section className="mt-10 max-w-[520px]">
+          <section className="mt-6 max-w-[520px]">
+            <MascotThink className="w-[200px] max-w-full" label="Kai keeps an eye out for you" />
             <Notice tone="positive" title="You are on the list">
               We will email you as soon as a matching participant joins {event.name}. You can create
               a profile at any time if you would rather look yourself.
@@ -904,8 +924,8 @@ function JoinedFact({ title, children }: { title: string; children: React.ReactN
   );
 }
 
-/** Brand palette only: emerald tones plus a little amber and periwinkle. */
-const CONFETTI_COLORS = ["#0d8a5e", "#27a97c", "#bfe2d2", "#f2b70a", "#93a8f7", "#221418"];
+/** Brand palette only: teal, coral, sun and a touch of ink. */
+const CONFETTI_COLORS = ["#12b4c6", "#0b8794", "#a9e9f0", "#ff6f59", "#ffc532", "#1E2A38"];
 
 /**
  * A single celebratory burst when the profile is created. Pure CSS animation,
@@ -1007,49 +1027,6 @@ function RequestActions({
         <CheckIcon size={15} />
         Accept and share contact
       </button>
-    </div>
-  );
-}
-
-/**
- * The "who is here" teaser above the join card: a loose cluster of illustrated
- * portraits with two question mark bubbles, one of them yours to claim.
- */
-function BubbleCluster() {
-  const bubbles: { seed?: string; size: number; x: string; y: number; delay: string }[] = [
-    { seed: "cluster-1", size: 72, x: "6%", y: 24, delay: "0ms" },
-    { seed: "cluster-2", size: 96, x: "24%", y: 64, delay: "300ms" },
-    { size: 64, x: "44%", y: 8, delay: "150ms" },
-    { seed: "cluster-3", size: 84, x: "58%", y: 68, delay: "450ms" },
-    { seed: "cluster-4", size: 64, x: "78%", y: 16, delay: "600ms" },
-    { size: 52, x: "90%", y: 78, delay: "220ms" },
-  ];
-  return (
-    <div className="relative h-44 select-none sm:h-48" aria-hidden="true">
-      {bubbles.map((b, i) => (
-        <span
-          key={i}
-          className="absolute animate-[float-soft_5s_ease-in-out_infinite]"
-          style={{ left: b.x, top: b.y, animationDelay: b.delay }}
-        >
-          {!b.seed ? (
-            <span
-              className="flex items-center justify-center rounded-full bg-surface font-display font-bold text-accent shadow-(--shadow-md)"
-              style={{ width: b.size, height: b.size, fontSize: b.size * 0.42 }}
-            >
-              ?
-            </span>
-          ) : (
-            <span
-              className="block overflow-hidden rounded-full shadow-(--shadow-md)"
-              style={{ width: b.size, height: b.size, background: tintFor(b.seed!) }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={poolAvatar(b.seed!)} alt="" className="h-full w-full object-cover" />
-            </span>
-          )}
-        </span>
-      ))}
     </div>
   );
 }
