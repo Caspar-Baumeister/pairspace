@@ -304,6 +304,57 @@ export const onWatcherAdded = onDocumentCreated(
 );
 
 /**
+ * Product feedback. Every entry goes straight to the maker's inbox, so
+ * nobody has to remember to look into Firestore.
+ */
+const FEEDBACK_TO = process.env.FEEDBACK_TO ?? "caspar.baumeister.privat@gmail.com";
+
+export const onFeedbackCreated = onDocumentCreated(
+  { document: "feedback/{feedbackId}", secrets: [RESEND_API_KEY] },
+  async (event) => {
+    const data = event.data?.data();
+    if (!data) return;
+    const moment: Record<string, string> = {
+      joined: "right after creating a profile",
+      matched: "after the first accepted connection",
+      later: "from the feedback link",
+    };
+    const mood: Record<string, string> = {
+      loved: "Loved it",
+      okay: "It was okay",
+      off: "Something was off",
+    };
+    const text = String(data.text ?? "").trim();
+    const eventSnap = await db.collection("events").doc(String(data.eventId)).get();
+    const slug = eventSnap.get("slug") as string | undefined;
+    const body = [
+      `<strong>${escapeHtml(String(data.eventName ?? "Unknown event"))}</strong>, ${moment[String(data.moment)] ?? String(data.moment)}.`,
+      `Mood: ${data.mood ? (mood[String(data.mood)] ?? String(data.mood)) : "not given"}.`,
+      text ? `"${escapeHtml(text).replace(/\n/g, "<br>")}"` : "No text, just the mood.",
+      data.email
+        ? `You may write back: <a href="mailto:${escapeHtml(String(data.email))}">${escapeHtml(String(data.email))}</a>`
+        : "No contact given.",
+    ];
+    await send({
+      to: FEEDBACK_TO,
+      subject: `Feedback: ${String(data.eventName ?? "event")} (${String(data.moment)})`,
+      heading: "A participant left feedback",
+      body,
+      cta: slug ? { label: "Open the event", url: eventLink(slug) } : undefined,
+      footer: "Internal Pairspace notification.",
+    });
+  },
+);
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/**
  * Retention. Every night, delete participant data for events whose retention
  * window has passed. The event itself and its final counts stay in the
  * organizer history.

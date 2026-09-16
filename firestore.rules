@@ -134,5 +134,20 @@ service cloud.firestore {
         allow write: if false;
       }
     }
+
+    /* Product feedback from participants. Write once, never readable from
+       the client. A Cloud Function mails each entry to the maker. */
+    match /feedback/{feedbackId} {
+      allow read: if false;
+      allow create: if signedIn()
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.eventId is string
+                    && request.resource.data.moment in ['joined', 'matched', 'later']
+                    && request.resource.data.text is string
+                    && request.resource.data.text.size() <= 1000
+                    && (request.resource.data.email == null
+                        || request.resource.data.email is string);
+      allow update, delete: if false;
+    }
   }
 }

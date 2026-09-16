@@ -11,6 +11,7 @@ import {
   SparkIcon,
   XIcon,
 } from "@/components/app/MatchList";
+import { FeedbackPrompt, FeedbackSheet } from "@/components/app/FeedbackPrompt";
 import { Notice } from "@/components/app/Notice";
 import { ParticipantForm, type ParticipantSubmission } from "@/components/app/ParticipantForm";
 import { PersonSheet } from "@/components/app/PersonSheet";
@@ -63,6 +64,7 @@ export function EventScreen({ slug }: { slug: string }) {
   const [connections, setConnections] = useState<Connection[]>([]);
   /** Whose profile sheet is open. */
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [view, setView] = useState<View>("choose");
   const [tab, setTab] = useState<"people" | "requests">("people");
   const [busy, setBusy] = useState(false);
@@ -510,6 +512,14 @@ export function EventScreen({ slug }: { slug: string }) {
               )}
             </div>
 
+            <FeedbackPrompt
+              event={event}
+              me={me}
+              moment="joined"
+              email={myContact?.email ?? null}
+              className="mt-6 text-left"
+            />
+
             <button
               type="button"
               className="btn btn-primary mt-6 w-full sm:w-auto"
@@ -533,6 +543,15 @@ export function EventScreen({ slug }: { slug: string }) {
 
         {view === "matches" && me ? (
           <section className="mt-7">
+            {connected.length ? (
+              <FeedbackPrompt
+                event={event}
+                me={me}
+                moment="matched"
+                email={myContact?.email ?? null}
+                className="mb-6"
+              />
+            ) : null}
             {matches.length ? (
               <div
                 className="-mx-5 flex gap-4 overflow-x-auto px-5 pb-1 no-scrollbar"
@@ -812,11 +831,31 @@ export function EventScreen({ slug }: { slug: string }) {
       ) : null}
 
       <footer className="border-t border-line/60 px-5 py-6">
-        <p className="mx-auto w-full max-w-[760px] text-[0.8125rem] text-ink-faint">
-          Pairspace is participant matching for events. It is not a dating service and not a social
-          network. Profiles live inside this event only.
-        </p>
+        <div className="mx-auto w-full max-w-[760px] text-[0.8125rem] text-ink-faint">
+          <p>
+            Pairspace is participant matching for events. It is not a dating service and not a
+            social network. Profiles live inside this event only.
+          </p>
+          {me ? (
+            <button
+              type="button"
+              className="mt-3 cursor-pointer font-bold text-accent hover:text-accent-hover"
+              onClick={() => setFeedbackOpen(true)}
+            >
+              Tell Caspar what to improve
+            </button>
+          ) : null}
+        </div>
       </footer>
+
+      {feedbackOpen && me ? (
+        <FeedbackSheet
+          event={event}
+          me={me}
+          email={myContact?.email ?? null}
+          onClose={() => setFeedbackOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

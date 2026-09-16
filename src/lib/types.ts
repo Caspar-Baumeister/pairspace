@@ -202,3 +202,23 @@ export interface MatchResult {
   score: number;
   reasons: string[];
 }
+
+/* Feedback ----------------------------------------------------------------- */
+
+/** When the person was asked. */
+export type FeedbackMoment = "joined" | "matched" | "later";
+export type FeedbackMood = "loved" | "okay" | "off";
+
+export interface Feedback {
+  id: string;
+  uid: string;
+  eventId: string;
+  eventName: string;
+  participantId: string | null;
+  moment: FeedbackMoment;
+  mood: FeedbackMood | null;
+  text: string;
+  /** Only set when the person ticked the box that we may write back. */
+  email: string | null;
+  createdAt: number;
+}

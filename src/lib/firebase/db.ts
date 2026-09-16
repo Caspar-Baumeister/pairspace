@@ -24,6 +24,9 @@ import { buildSlug, token } from "../slug";
 import type {
   Connection,
   EventDraft,
+  Feedback,
+  FeedbackMood,
+  FeedbackMoment,
   PairspaceEvent,
   Participant,
   ParticipantContact,
@@ -316,4 +319,33 @@ export function watchConnections(
     // Older records were written without an id field, so take it from the document.
     (snap) => onChange(snap.docs.map((d) => ({ ...(d.data() as Connection), id: d.id }))),
   );
+}
+
+/* Feedback ----------------------------------------------------------------- */
+
+export async function sendFeedback(input: {
+  uid: string;
+  eventId: string;
+  eventName: string;
+  participantId: string | null;
+  moment: FeedbackMoment;
+  mood: FeedbackMood | null;
+  text: string;
+  email: string | null;
+}): Promise<void> {
+  const { db } = firebase();
+  const ref = doc(collection(db, "feedback"));
+  const record: Feedback = {
+    id: ref.id,
+    uid: input.uid,
+    eventId: input.eventId,
+    eventName: input.eventName,
+    participantId: input.participantId,
+    moment: input.moment,
+    mood: input.mood,
+    text: input.text.trim().slice(0, 1000),
+    email: input.email ? input.email.trim().toLowerCase() : null,
+    createdAt: now(),
+  };
+  await setDoc(ref, record);
 }
