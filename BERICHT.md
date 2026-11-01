@@ -1,6 +1,6 @@
 # Pairspace: Bericht
 
-WG Matching für Vermieter möblierter Zimmer. Gleicher Name, gleiche Domain, gleiches Firebase-Projekt wie das alte Event-Pairspace, aber ein neues Produkt. Code auf Branch `wg-matching` (noch nicht committet, `master` ist unverändert das alte Produkt).
+WG Matching für Vermieter möblierter Zimmer. Gleicher Name, gleiche Domain, gleiches Firebase-Projekt wie das alte Event-Pairspace, aber ein neues Produkt. Seit 01.11.2026 auf `master` (Commit `45e1fae`) und live auf joinpairspace.com.
 
 ## 1. Recap altes Pairspace (Stand 31.10.2026)
 
@@ -9,7 +9,7 @@ WG Matching für Vermieter möblierter Zimmer. Gleicher Name, gleiche Domain, gl
 **Infrastruktur, die bleibt:**
 - Domain **joinpairspace.com**, registriert bei Vercel (Team "Caspar Baumeister"), 11,25 USD im Jahr, Auto Renew an. Vercel ist nur Registrar und DNS, die Seite läuft auf Firebase App Hosting.
 - Firebase-Projekt **pairspace-live** (Projektnummer 865487163332), Blaze-Plan.
-- App Hosting Backend `pairspace` in europe-west4, verbunden mit GitHub `Caspar-Baumeister/pairspace`, deployt bei jedem Push auf den verbundenen Branch (bisher `master`). URL https://pairspace--pairspace-live.europe-west4.hosted.app, Custom Domain joinpairspace.com.
+- App Hosting Backend `pairspace` in europe-west4, verbunden mit GitHub `Caspar-Baumeister/pairspace`, deployt bei jedem Push auf `master`. URL https://pairspace--pairspace-live.europe-west4.hosted.app, Custom Domain joinpairspace.com.
 - Auth: Google, Apple (Services ID mit joinpairspace.com), anonym. joinpairspace.com ist als Authorized Domain eingetragen.
 - Resend für Mails (Secret `RESEND_API_KEY`, Absender hello@joinpairspace.com), Code in `functions/src/mail.ts`.
 
@@ -17,10 +17,14 @@ WG Matching für Vermieter möblierter Zimmer. Gleicher Name, gleiche Domain, gl
 - Firestore komplett geleert: 5 Events, 7 Teilnehmer samt Kontakten, 1 Verbindung, 2 Watcher, 2 Feedbacks, 5 Slugs, 1 Nutzer. Die alte Function `onParticipantRemoved` hat beim Löschen zwei leere Event-Hüllen neu angelegt, die habe ich im zweiten Durchgang gelöscht. Danach war alles leer.
 - Storage: die 2 Teilnehmerfotos gelöscht.
 
-**Noch live, nicht angefasst:**
-- Die 8 alten Cloud Functions in europe-west1 (`onParticipantJoined`, `onConnectionCreated`, `onConnectionAnswered`, `onParticipantChanged`, `onParticipantRemoved`, `onWatcherAdded`, `onFeedbackCreated`, `cleanupExpiredEvents`). Das Löschen hat die Sicherheitsprüfung blockiert, weil du nur die Datenbanken freigegeben hattest. Sie schaden nicht (sie hören auf `events/...`, das neue Modell nutzt andere Pfade), kosten aber einen Scheduler-Job. Löschen mit `firebase functions:delete ... --region europe-west1`, sobald du willst.
-- Auth-Nutzer des alten Produkts (Google-Logins), nicht gelöscht.
-- joinpairspace.com zeigt weiter die alte Seite, bis der neue Code deployt ist.
+**Am 01.11.2026 mit deinem OK erledigt:**
+- Die 8 alten Cloud Functions in europe-west1 gelöscht (`onParticipantJoined`, `onConnectionCreated`, `onConnectionAnswered`, `onParticipantChanged`, `onParticipantRemoved`, `onWatcherAdded`, `onFeedbackCreated`, `cleanupExpiredEvents`, damit auch der Scheduler-Job). Es laufen keine Functions mehr.
+- Neue Firestore- und Storage-Regeln deployt.
+- Neuer Code auf `master` gepusht, App Hosting hat joinpairspace.com neu gebaut.
+
+**Noch da, nicht angefasst:**
+- Auth-Nutzer des alten Produkts (Google-Logins).
+- Alte zusammengesetzte Firestore-Indizes (harmlos, die Collections dazu gibt es nicht mehr).
 
 ## 2. Das neue Produkt (Prototyp vom 31.10.2026)
 
@@ -56,9 +60,9 @@ Siehe README. Kurz: `npm run emulators`, `npm run seed`, `npm run dev`. Demo-Ver
 - Im Browser durchgeklickt: Landingpage, Registrierung, Wohnung anlegen, Zimmerfoto hochladen, Über dich, Testphase, Link mit QR-Code. Als Bewerber am Handy-Format: Intro, drei Bewertungen, Zimmer mit Gleichstand, Profil mit Foto, Kontakt, Abschluss. Als Demo-Vermieter: Graph mit drei Lagern, Auswahl, Personen-Panel, Gruppenliste.
 
 ## 5. Offen
-1. **Deploy:** Branch committen und nach `master` bringen (App Hosting deployt dann joinpairspace.com), `firebase deploy --only firestore,storage` für die neuen Regeln, alte Functions löschen. Erst nach deinem OK.
-2. **Rechtliches vor dem Livegang:** Impressum und Datenschutzerklärung fehlen (alte `/privacy` und `/terms` waren englische Entwürfe und sind raus).
-3. **Stripe:** Checkout mit `trial_period_days: 7`, Webhook schreibt `landlords/{uid}.subscription`, Kundenportal zum Kündigen.
+1. **Mail-Anmeldung einschalten:** Im Live-Projekt sind nur Google, Apple und anonym aktiv. Ohne den Anbieter "E-Mail/Passwort" scheitern die Registrierung per Mail und "Konto mit Passwort sichern" bei Bewerbern. Firebase Console, Authentication, Sign-in method, E-Mail/Passwort aktivieren (ohne Link-Anmeldung). Google-Login funktioniert schon.
+2. **Rechtliches, dringend:** Die Seite ist live, aber Impressum und Datenschutzerklärung fehlen (alte `/privacy` und `/terms` waren englische Entwürfe und sind raus).
+3. **Stripe:** Checkout mit `trial_period_days: 7`, Webhook schreibt `landlords/{uid}.subscription`, Kundenportal zum Kündigen. Bis dahin gilt live: `/api/abo` startet die Testphase ohne Zahlung, und wer danach auf Abo klickt, bekommt 30 oder 365 Tage aktiv, ebenfalls ohne Zahlung.
 4. **Mails:** Function, die den Vermieter bei neuen Profilen und Bewerber (mit `notify`) bei neuen Mitbewerbern benachrichtigt. `mail.ts` mit Resend ist vorbereitet.
 5. **Fotos beim Löschen:** "Bewerbungen löschen" entfernt Profile, Bewertungen und Kontakte, aber nicht die Bewerberfotos in Storage (Pfad gehört dem Bewerber). Braucht eine Function. Der Satz im Intro "wird deine Bewerbung gelöscht" stimmt erst danach ganz.
 6. **Limit 1 Wohnung** wird nur in der Oberfläche erzwungen, nicht in den Regeln.
