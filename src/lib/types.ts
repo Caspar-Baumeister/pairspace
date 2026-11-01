@@ -1,224 +1,150 @@
 /**
- * Pairspace data model.
+ * Pairspace data model: matching flatmates for furnished shared flats.
  *
  * Firestore layout
- *   events/{eventId}
- *   events/{eventId}/participants/{participantId}
- *   events/{eventId}/participants/{participantId}/private/contact   own contact details, owner only
- *   events/{eventId}/participants/{participantId}/private/shared    contacts released to this person
- *   events/{eventId}/watchers/{watcherId}        email only, no profile
- *   events/{eventId}/connections/{connectionId}  a contact exchange between two participants
- *   events/{eventId}/stats/rollup                counters kept by Cloud Functions
- *   users/{uid}                                  organizer record
- *   slugs/{slug}                                 slug to eventId lookup, public read
+ *   landlords/{uid}                                   landlord account, owner only.
+ *                                                     `subscription` is written by the server only.
+ *   flats/{flatId}                                    one flat (a "project"). The id is also the
+ *                                                     code in the public link /w/{flatId}.
+ *                                                     Readable by anyone once status is live.
+ *   flats/{flatId}/applicants/{uid}                   applicant profile, visible to the landlord
+ *                                                     and to the other applicants of this flat
+ *   flats/{flatId}/applicants/{uid}/private/contact   mail and phone, applicant and landlord only
+ *   flats/{flatId}/ballots/{uid}                      how this applicant rated the others and
+ *                                                     ranked the rooms, applicant and landlord only
+ *
+ * Storage layout
+ *   landlords/{uid}/flats/{flatId}/{roomId}.webp      room photos, written by the landlord
+ *   landlords/{uid}/avatar.webp                       landlord photo
+ *   flats/{flatId}/applicants/{uid}/{photoId}.webp    applicant photos, written by the applicant
+ *
+ * Timestamps are milliseconds since epoch.
  */
 
-export type CategoryStyle = "pair" | "single";
-
-/** One participant category the organizer offers, for example Base or Flyer. */
-export interface EventCategory {
-  id: string;
-  label: string;
-  /** Ids this category is looking for. Base pairs with Flyer, Leader with Follower. */
-  matchesWith: string[];
-  description?: string;
+export interface Photo {
+  url: string;
+  path: string;
 }
 
-export type QuestionType = "single" | "multi" | "text" | "range";
+/* ------------------------------------------------------------------ landlord */
 
-/** An extra question the organizer asks every participant. */
-export interface EventQuestion {
-  id: string;
-  label: string;
-  type: QuestionType;
-  options: string[];
-  required: boolean;
-  /** Answers to this question influence the match score. */
-  usedForMatching: boolean;
-  helpText?: string;
+export type PlanInterval = "month" | "year";
+export type SubscriptionStatus = "trialing" | "active" | "past_due" | "canceled";
+
+export interface Subscription {
+  plan: "basic";
+  interval: PlanInterval;
+  status: SubscriptionStatus;
+  trialEndsAt: number | null;
+  currentPeriodEnd: number;
+  /** "prototype" until Stripe is wired up, then "stripe". */
+  provider: "prototype" | "stripe";
+  stripeCustomerId?: string;
 }
 
-export type EventStatus = "draft" | "live" | "closed";
-
-export interface PairspaceEvent {
-  id: string;
-  slug: string;
-  ownerUid: string | null;
+export interface Landlord {
+  uid: string;
   name: string;
-  /** Where the event happens, free text such as "Berlin, Germany". */
-  location: string;
-  startDate: string | null;
-  endDate: string | null;
-  description: string;
-  categories: EventCategory[];
-  questions: EventQuestion[];
-  /** Participants may show their first name and their answers to other participants. */
-  visibility: "participants" | "organizerOnly";
-  /**
-   * Participants may upload a photo of themselves. Off by default, because an
-   * illustrated portrait is enough for most events and asking for a face photo
-   * raises the bar to join.
-   */
-  allowPhotos: boolean;
-  /** A photo is required rather than optional. Only meaningful with allowPhotos. */
-  requirePhotos: boolean;
-  status: EventStatus;
-  /** Profiles are deleted this many days after the event ends. */
-  retentionDays: number;
+  email: string | null;
+  about: string;
+  photo: Photo | null;
   createdAt: number;
   updatedAt: number;
-  counts: EventCounts;
+  subscription?: Subscription;
 }
 
-export interface EventCounts {
-  participants: number;
-  watchers: number;
-  connections: number;
-  openForPartner: number;
-}
+/* ---------------------------------------------------------------------- flat */
 
-export interface ParticipantAnswer {
-  questionId: string;
-  value: string | string[];
-}
-
-/**
- * How a participant wants to be reached.
- *   email     notifications by email, address released on an accepted connection
- *   whatsapp  phone number released on an accepted connection, no notifications
- *   link      nothing leaves the event page, the person checks back for requests
- */
-export type ContactMethod = "email" | "whatsapp" | "link";
-
-/**
- * Private contact details. Lives in participants/{id}/private/contact, readable
- * only by the participant and the Cloud Functions. Never in the public profile.
- */
-export interface ParticipantContact {
-  /** Owner uid, checked by the security rules. */
-  uid: string;
-  email: string;
-  /** Phone number as typed, with country code. Empty when not given. */
-  phone: string;
-  updatedAt: number;
-}
-
-/** One contact released to a participant after both sides accepted. */
-export interface SharedContact {
-  participantId: string;
-  connectionId: string;
-  firstName: string;
-  email: string;
-  phone: string;
-  sharedAt: number;
-}
-
-/** participants/{id}/private/shared, written by the Cloud Functions only. */
-export interface SharedContacts {
-  uid: string;
-  contacts: Record<string, SharedContact>;
-  updatedAt: number;
-}
-
-export interface Participant {
+export interface Room {
   id: string;
-  eventId: string;
-  /** Firebase anonymous auth uid, used so a person can edit their own profile. */
-  uid: string;
-  firstName: string;
-  categoryIds: string[];
-  lookingForIds: string[];
-  answers: ParticipantAnswer[];
+  name: string;
+  /** Monthly rent including utilities, in euro. */
+  rent: number | null;
+  /** Square metres. */
+  size: number | null;
+  photo: Photo | null;
+  /** ISO date, for example 2026-12-01. */
+  availableFrom: string | null;
   note: string;
-  /** Download URL of the uploaded photo, when the event allows photos. */
-  photoUrl: string | null;
-  /** Storage path, kept so the photo can be deleted with the profile. */
-  photoPath: string | null;
-  /** Which channels this person offered. The details themselves live in private/contact. */
-  contactMethods: ContactMethod[];
-  /** Still looking for a partner. Set to false once someone found one. */
-  open: boolean;
-  /** Email when a matching participant joins. Only meaningful with an email address. */
-  notifyOnMatch: boolean;
+}
+
+export type FlatStatus = "draft" | "live" | "closed";
+
+export interface Flat {
+  id: string;
+  ownerUid: string;
+  title: string;
+  city: string;
+  district: string;
+  description: string;
+  /** Snapshot of the landlord shown to applicants, so they never read the landlord doc. */
+  host: { name: string; about: string; photoUrl: string | null };
+  rooms: Room[];
+  status: FlatStatus;
   createdAt: number;
   updatedAt: number;
-  /** Random secret in the edit link so a person can come back from another device. */
-  editToken: string;
 }
 
-/** Someone who only wants an email when a matching participant joins. */
-export interface Watcher {
-  id: string;
-  eventId: string;
+/* ----------------------------------------------------------------- applicant */
+
+export type Cleanliness = "relaxed" | "normal" | "tidy";
+export type FlatLife = "solo" | "mixed" | "together";
+export type Rhythm = "early" | "flexible" | "night";
+export type Stay = "short" | "medium" | "long";
+
+export interface Lifestyle {
+  cleanliness: Cleanliness | null;
+  flatLife: FlatLife | null;
+  rhythm: Rhythm | null;
+  smoker: boolean | null;
+  pets: boolean | null;
+}
+
+export type ApplicantStatus = "draft" | "complete";
+
+export interface Applicant {
+  uid: string;
+  firstName: string;
+  age: number | null;
+  /** What they do, for example "Medizinstudium" or "UX Designerin". */
+  occupation: string;
+  bio: string;
+  photos: Photo[];
+  interests: string[];
+  languages: string[];
+  lifestyle: Lifestyle;
+  moveIn: string | null;
+  stay: Stay | null;
+  /** Draft until the profile step is done. Only complete profiles are shown to others. */
+  status: ApplicantStatus;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface ApplicantContact {
   email: string;
-  lookingForIds: string[];
-  createdAt: number;
-  notifiedAt: number | null;
-  confirmed: boolean;
-  confirmToken: string;
+  phone: string;
+  /** Mail me when new applicants join or the landlord gets in touch. */
+  notify: boolean;
+  updatedAt: number;
 }
 
-export type ConnectionStatus = "pending" | "accepted" | "declined" | "expired";
+/* -------------------------------------------------------------------- ballot */
 
-export interface Connection {
-  id: string;
-  eventId: string;
-  fromParticipantId: string;
-  toParticipantId: string;
-  message: string;
-  status: ConnectionStatus;
-  createdAt: number;
-  respondedAt: number | null;
-  /** Set by the Cloud Function once both addresses were mailed out. */
-  contactSharedAt: number | null;
-}
+/**
+ * Five steps from "no way" to "absolutely". -2 is a veto: a group that contains
+ * a veto in either direction is never suggested.
+ */
+export type Vote = -2 | -1 | 0 | 1 | 2;
 
-export interface OrganizerProfile {
+export interface Ballot {
   uid: string;
-  email: string | null;
-  displayName: string | null;
-  photoURL: string | null;
-  createdAt: number;
-  eventIds: string[];
-}
-
-/** Shape of the draft kept in local storage while the organizer builds an event. */
-export interface EventDraft {
-  name: string;
-  location: string;
-  startDate: string;
-  endDate: string;
-  description: string;
-  categories: EventCategory[];
-  questions: EventQuestion[];
-  visibility: PairspaceEvent["visibility"];
-  allowPhotos: boolean;
-  requirePhotos: boolean;
-  retentionDays: number;
-}
-
-export interface MatchResult {
-  participant: Participant;
-  score: number;
-  reasons: string[];
-}
-
-/* Feedback ----------------------------------------------------------------- */
-
-/** When the person was asked. */
-export type FeedbackMoment = "joined" | "matched" | "later";
-export type FeedbackMood = "loved" | "okay" | "off";
-
-export interface Feedback {
-  id: string;
-  uid: string;
-  eventId: string;
-  eventName: string;
-  participantId: string | null;
-  moment: FeedbackMoment;
-  mood: FeedbackMood | null;
-  text: string;
-  /** Only set when the person ticked the box that we may write back. */
-  email: string | null;
-  createdAt: number;
+  /** Other applicant uid to vote. Missing means not rated yet. */
+  votes: Record<string, Vote>;
+  /**
+   * Room id to rank, 1 is the favourite. Equal ranks mean equally good
+   * (competition ranking, so two favourites give 1, 1, 3).
+   */
+  roomRanks: Record<string, number>;
+  updatedAt: number;
 }

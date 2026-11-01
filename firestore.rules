@@ -1,5 +1,14 @@
 rules_version = '2';
 
+/**
+ * Pairspace, flatmate matching. The layout is documented in src/lib/types.ts.
+ *
+ * Who sees what
+ *   landlord      everything about their own flats
+ *   applicant     the live flat, the profiles of the other applicants of that
+ *                 flat, and only their own ballot and contact details
+ *   anyone else   a live flat (it is linked from public ads anyway)
+ */
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -7,147 +16,96 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isOwner(uid) {
-      return signedIn() && request.auth.uid == uid;
+    function permanent() {
+      return signedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous';
     }
 
-    function eventDoc(eventId) {
-      return get(/databases/$(database)/documents/events/$(eventId)).data;
+    function flatData(flatId) {
+      return get(/databases/$(database)/documents/flats/$(flatId)).data;
     }
 
-    function isEventOwner(eventId) {
-      return signedIn() && eventDoc(eventId).ownerUid == request.auth.uid;
+    function ownsFlat(flatId) {
+      return signedIn() && flatData(flatId).ownerUid == request.auth.uid;
     }
 
-    function eventIsLive(eventId) {
-      return eventDoc(eventId).status == 'live';
+    function flatIsLive(flatId) {
+      return flatData(flatId).status == 'live';
     }
 
-    function profilesAreShared(eventId) {
-      return eventDoc(eventId).visibility == 'participants';
+    /** Trial or paid. Written by the server only, see /api/abo. */
+    function subscribed() {
+      let sub = get(/databases/$(database)/documents/landlords/$(request.auth.uid)).data.get('subscription', null);
+      return sub != null
+        && sub.status in ['trialing', 'active']
+        && sub.currentPeriodEnd > request.time.toMillis();
     }
 
-    /* Slug lookup. Public read so an event link resolves without an account. */
-    match /slugs/{slug} {
-      allow read: if true;
-      allow create: if signedIn()
-                    && request.resource.data.ownerUid == request.auth.uid;
-      allow update, delete: if isOwner(resource.data.ownerUid);
+    function validRooms(data) {
+      return data.rooms is list && data.rooms.size() <= 20;
     }
 
-    /* Organizer profile. */
-    match /users/{uid} {
-      allow read, write: if isOwner(uid);
+    match /landlords/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create: if permanent()
+                    && request.auth.uid == uid
+                    && !('subscription' in request.resource.data);
+      allow update: if permanent()
+                    && request.auth.uid == uid
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['subscription', 'uid']);
     }
 
-    /* Events are readable by anyone holding the link, writable by the owner. */
-    match /events/{eventId} {
-      allow read: if true;
+    match /flats/{flatId} {
+      allow read: if resource.data.status == 'live'
+                  || (signedIn() && resource.data.ownerUid == request.auth.uid);
 
-      allow create: if signedIn()
+      allow create: if permanent()
                     && request.resource.data.ownerUid == request.auth.uid
-                    && request.resource.data.name is string
-                    && request.resource.data.name.size() > 2
-                    && request.resource.data.categories.size() <= 20
-                    && request.resource.data.questions.size() <= 20;
+                    && request.resource.data.id == flatId
+                    && request.resource.data.status == 'draft'
+                    && validRooms(request.resource.data);
 
-      allow update: if isOwner(resource.data.ownerUid)
-                    && request.resource.data.ownerUid == resource.data.ownerUid;
+      // Going live needs a trial or a paid plan. That is what unlocks the link.
+      allow update: if signedIn()
+                    && resource.data.ownerUid == request.auth.uid
+                    && request.resource.data.ownerUid == resource.data.ownerUid
+                    && request.resource.data.id == resource.data.id
+                    && validRooms(request.resource.data)
+                    && (request.resource.data.status != 'live' || subscribed());
 
-      allow delete: if isOwner(resource.data.ownerUid);
+      allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
 
-      /* Participants. The public profile holds no contact details. Those live
-         in the private subcollection below and only leave it through an
-         accepted connection handled by a Cloud Function. */
-      match /participants/{participantId} {
-        function ownsParticipant() {
-          return signedIn()
-                 && get(/databases/$(database)/documents/events/$(eventId)/participants/$(participantId)).data.uid == request.auth.uid;
-        }
+      match /applicants/{uid} {
+        allow read: if signedIn() && (flatIsLive(flatId) || ownsFlat(flatId));
+        allow create, update: if signedIn()
+                              && request.auth.uid == uid
+                              && request.resource.data.uid == uid
+                              && request.resource.data.photos.size() <= 6
+                              && request.resource.data.bio.size() <= 1000
+                              && flatIsLive(flatId);
+        allow delete: if signedIn() && (request.auth.uid == uid || ownsFlat(flatId));
 
-        allow read: if isEventOwner(eventId) || profilesAreShared(eventId);
-
-        allow create: if signedIn()
-                      && eventIsLive(eventId)
-                      && request.resource.data.uid == request.auth.uid
-                      && request.resource.data.firstName is string
-                      && request.resource.data.firstName.size() >= 2
-                      && request.resource.data.firstName.size() <= 40
-                      && request.resource.data.note.size() <= 280
-                      && request.resource.data.categoryIds.size() >= 1
-                      && request.resource.data.categoryIds.size() <= 5
-                      && (request.resource.data.photoUrl == null
-                          || request.resource.data.photoUrl is string);
-
-        allow update: if isOwner(resource.data.uid)
-                      && request.resource.data.uid == resource.data.uid;
-
-        allow delete: if isOwner(resource.data.uid) || isEventOwner(eventId);
-
-        /* Own contact details and the contacts released to this person.
-           Readable by the participant only, not even by the organizer.
-           The shared document is written by the Cloud Functions alone. */
         match /private/{docId} {
-          allow read: if ownsParticipant();
-
-          allow create, update: if docId == 'contact'
-                                && ownsParticipant()
-                                && request.resource.data.uid == request.auth.uid
-                                && request.resource.data.email is string
-                                && request.resource.data.email.size() <= 120
-                                && request.resource.data.phone is string
-                                && request.resource.data.phone.size() <= 40;
-
-          allow delete: if ownsParticipant();
+          allow read: if signedIn() && (request.auth.uid == uid || ownsFlat(flatId));
+          allow create, update: if signedIn() && request.auth.uid == uid && flatIsLive(flatId);
+          allow delete: if signedIn() && (request.auth.uid == uid || ownsFlat(flatId));
         }
       }
 
-      /* Watchers hold only an email address. Nobody may read them from the
-         client, not even the organizer. Counts come from the rollup document. */
-      match /watchers/{watcherId} {
-        allow read: if false;
-        allow create: if signedIn()
-                      && request.resource.data.email is string
-                      && request.resource.data.email.matches('.+@.+[.].+');
-        allow update, delete: if false;
-      }
-
-      /* Connections. Only the two people involved may read one. */
-      match /connections/{connectionId} {
-        allow read: if signedIn();
-
-        allow create: if signedIn()
-                      && request.resource.data.status == 'pending'
-                      && request.resource.data.message.size() <= 500;
-
-        allow update: if signedIn()
-                      && request.resource.data.diff(resource.data)
-                          .affectedKeys()
-                          .hasOnly(['status', 'respondedAt']);
-
-        allow delete: if false;
-      }
-
-      /* Aggregated counters written by Cloud Functions only. */
-      match /stats/{docId} {
-        allow read: if true;
-        allow write: if false;
+      // Ratings and room wishes never reach the other applicants.
+      match /ballots/{uid} {
+        allow read: if signedIn() && (request.auth.uid == uid || ownsFlat(flatId));
+        allow create, update: if signedIn()
+                              && request.auth.uid == uid
+                              && request.resource.data.uid == uid
+                              && request.resource.data.votes is map
+                              && request.resource.data.roomRanks is map
+                              && flatIsLive(flatId);
+        allow delete: if signedIn() && (request.auth.uid == uid || ownsFlat(flatId));
       }
     }
 
-    /* Product feedback from participants. Write once, never readable from
-       the client. A Cloud Function mails each entry to the maker. */
-    match /feedback/{feedbackId} {
-      allow read: if false;
-      allow create: if signedIn()
-                    && request.resource.data.uid == request.auth.uid
-                    && request.resource.data.eventId is string
-                    && request.resource.data.moment in ['joined', 'matched', 'later']
-                    && request.resource.data.text is string
-                    && request.resource.data.text.size() <= 1000
-                    && (request.resource.data.email == null
-                        || request.resource.data.email is string);
-      allow update, delete: if false;
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

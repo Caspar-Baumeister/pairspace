@@ -1,45 +1,268 @@
+"use client";
+
+import {
+  BedDouble,
+  ChevronDown,
+  ChevronRight,
+  CircleHelp,
+  CreditCard,
+  House,
+  Link2,
+  LogOut,
+  PanelLeft,
+  Plus,
+  Settings,
+  Waypoints,
+  X,
+} from "lucide-react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-import { Logo } from "@/components/site/Logo";
+import { LogoMark } from "@/components/ui/Logo";
+import { useAuth } from "@/lib/firebase/auth";
+import { useLandlord, useMyFlats } from "@/lib/firebase/data";
+import { isActive } from "@/lib/plans";
+import type { Flat, Landlord } from "@/lib/types";
 
-export function AppShell({
-  children,
-  right,
-  wide = false,
-}: {
-  children: React.ReactNode;
-  right?: React.ReactNode;
-  wide?: boolean;
-}) {
+const ICON = { size: 18, strokeWidth: 1.75 } as const;
+const SMALL = { size: 15, strokeWidth: 1.75 } as const;
+
+interface ShellState {
+  landlord: Landlord | null;
+  flats: Flat[];
+  flatsLoading: boolean;
+  toggleSidebar: () => void;
+}
+
+const ShellCtx = createContext<ShellState | null>(null);
+
+export function useShell(): ShellState {
+  const ctx = useContext(ShellCtx);
+  if (!ctx) throw new Error("useShell must be used inside AppShell");
+  return ctx;
+}
+
+function flatLinks(id: string) {
+  return [
+    { href: `/app/w/${id}`, label: "Bewerber", icon: Waypoints },
+    { href: `/app/w/${id}/zimmer`, label: "Zimmer", icon: BedDouble },
+    { href: `/app/w/${id}/link`, label: "Einladungslink", icon: Link2 },
+    { href: `/app/w/${id}/einstellungen`, label: "Einstellungen", icon: Settings },
+  ];
+}
+
+/**
+ * Obsidian's workspace: a 44px ribbon of actions on the far left, a sidebar
+ * with a file tree (here: flats and their views), and the main pane.
+ */
+export function AppShell({ children }: { children: ReactNode }) {
+  const { user, signOut } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+  const landlord = useLandlord(user?.uid);
+  const flats = useMyFlats(user?.uid);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  const currentFlatId = pathname.match(/^\/app\/w\/([^/]+)/)?.[1] ?? null;
+
+  useEffect(() => setMobileOpen(false), [pathname]);
+
+  const toggleSidebar = () => {
+    if (window.matchMedia("(max-width: 767px)").matches) setMobileOpen((o) => !o);
+    else setSidebarOpen((o) => !o);
+  };
+
+  const sub = landlord.data?.subscription;
+  const active = isActive(sub);
+
+  const sidebar = (
+    <nav className="flex h-full w-[260px] flex-col bg-bg-2" aria-label="Wohnungen">
+      <div className="flex h-10 shrink-0 items-center justify-between px-3">
+        <span className="ui-label">Wohnungen</span>
+        <div className="flex items-center gap-0.5">
+          <Link href="/app/neu" className="icon-btn" aria-label="Neue Wohnung" title="Neue Wohnung">
+            <Plus {...SMALL} />
+          </Link>
+          <button type="button" className="icon-btn md:hidden" onClick={() => setMobileOpen(false)} aria-label="Schließen">
+            <X {...SMALL} />
+          </button>
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+        {flats.data.map((flat) => {
+          const open = !collapsed[flat.id];
+          return (
+            <div key={flat.id} className="mb-1">
+              <button
+                type="button"
+                className="nav-item w-full text-left"
+                onClick={() => setCollapsed((c) => ({ ...c, [flat.id]: open }))}
+              >
+                {open ? <ChevronDown size={14} strokeWidth={1.75} /> : <ChevronRight size={14} strokeWidth={1.75} />}
+                <span className="min-w-0 flex-1 truncate font-medium text-ink">{flat.title || "Neue Wohnung"}</span>
+                {flat.status !== "live" ? (
+                  <span className="rounded-sm bg-base-30 px-1.5 text-[11px] text-faint">
+                    {flat.status === "draft" ? "Entwurf" : "Pausiert"}
+                  </span>
+                ) : null}
+              </button>
+              {open ? (
+                <div className="ml-[15px] border-l border-line pl-1.5">
+                  {flatLinks(flat.id).map(({ href, label, icon: Icon }) => (
+                    <Link key={href} href={href} className={`nav-item ${pathname === href ? "is-active" : ""}`}>
+                      <Icon size={14} strokeWidth={1.75} />
+                      {label}
+                    </Link>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+        {!flats.loading && flats.data.length === 0 ? (
+          <Link href="/app/neu" className="nav-item text-accent">
+            <Plus size={14} strokeWidth={1.75} /> Erste Wohnung anlegen
+          </Link>
+        ) : null}
+      </div>
+
+      <div className="shrink-0 border-t border-line p-2">
+        <Link href="/app/abo" className={`nav-item ${pathname === "/app/abo" ? "is-active" : ""}`}>
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-base-30 text-[11px] font-semibold text-ink">
+            {(landlord.data?.name || user?.email || "?").slice(0, 1).toUpperCase()}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-ink">{landlord.data?.name || user?.email}</span>
+            <span className="block text-[11px] text-faint">
+              {active ? (sub?.status === "trialing" ? "Basic, Testphase" : "Basic") : "Kein Abo"}
+            </span>
+          </span>
+        </Link>
+      </div>
+    </nav>
+  );
+
   return (
-    <div className="min-h-dvh bg-canvas">
-      <header className="sticky top-0 z-40 border-b border-line bg-surface/85 backdrop-blur-xl">
-        <div className="mx-auto flex h-14 w-full max-w-[1160px] items-center justify-between px-5">
-          <Logo />
-          <div className="flex items-center gap-2">{right}</div>
-        </div>
-      </header>
-      <main
-        id="main"
-        className={`mx-auto w-full px-5 pb-24 pt-10 ${wide ? "max-w-[1160px]" : "max-w-[720px]"}`}
-      >
-        {children}
-      </main>
-      <footer className="border-t border-line px-5 py-6">
-        <div className="mx-auto flex w-full max-w-[1160px] flex-wrap items-center justify-between gap-3">
-          <p className="text-[0.8125rem] text-ink-faint">
-            Pairspace, participant matching for events.
-          </p>
-          <div className="flex gap-4">
-            <Link href="/privacy" className="text-[0.8125rem] text-ink-faint hover:text-ink">
-              Privacy
+    <ShellCtx.Provider
+      value={{ landlord: landlord.data, flats: flats.data, flatsLoading: flats.loading, toggleSidebar }}
+    >
+      <div className="flex h-dvh overflow-hidden bg-bg">
+        {/* Ribbon */}
+        <aside className="hidden w-[44px] shrink-0 flex-col items-center gap-1 border-r border-line bg-bg-2 py-2 md:flex">
+          <Link href="/app" className="mb-2 flex h-8 w-8 items-center justify-center text-ink" aria-label="Pairspace">
+            <LogoMark size={20} />
+          </Link>
+          <button type="button" className="icon-btn h-8 w-8" onClick={toggleSidebar} aria-label="Seitenleiste" title="Seitenleiste">
+            <PanelLeft {...ICON} />
+          </button>
+          {currentFlatId ? (
+            <>
+              <Link
+                href={`/app/w/${currentFlatId}`}
+                className={`icon-btn h-8 w-8 ${pathname === `/app/w/${currentFlatId}` ? "is-active" : ""}`}
+                aria-label="Bewerber Graph"
+                title="Bewerber Graph"
+              >
+                <Waypoints {...ICON} />
+              </Link>
+              <Link
+                href={`/app/w/${currentFlatId}/zimmer`}
+                className={`icon-btn h-8 w-8 ${pathname.endsWith("/zimmer") ? "is-active" : ""}`}
+                aria-label="Zimmer"
+                title="Zimmer"
+              >
+                <BedDouble {...ICON} />
+              </Link>
+              <Link
+                href={`/app/w/${currentFlatId}/link`}
+                className={`icon-btn h-8 w-8 ${pathname.endsWith("/link") ? "is-active" : ""}`}
+                aria-label="Einladungslink"
+                title="Einladungslink"
+              >
+                <Link2 {...ICON} />
+              </Link>
+            </>
+          ) : (
+            <Link href="/app" className="icon-btn h-8 w-8" aria-label="Wohnungen" title="Wohnungen">
+              <House {...ICON} />
             </Link>
-            <Link href="/terms" className="text-[0.8125rem] text-ink-faint hover:text-ink">
-              Terms
-            </Link>
+          )}
+          <div className="flex-1" />
+          <Link href="/app/abo" className={`icon-btn h-8 w-8 ${pathname === "/app/abo" ? "is-active" : ""}`} aria-label="Abo" title="Abo">
+            <CreditCard {...ICON} />
+          </Link>
+          <Link href="/#so-gehts" className="icon-btn h-8 w-8" aria-label="Hilfe" title="Hilfe">
+            <CircleHelp {...ICON} />
+          </Link>
+          <button
+            type="button"
+            className="icon-btn h-8 w-8"
+            onClick={async () => {
+              await signOut();
+              router.replace("/");
+            }}
+            aria-label="Abmelden"
+            title="Abmelden"
+          >
+            <LogOut {...ICON} />
+          </button>
+        </aside>
+
+        {/* Sidebar, desktop */}
+        {sidebarOpen ? <div className="hidden shrink-0 border-r border-line md:block">{sidebar}</div> : null}
+
+        {/* Sidebar, mobile drawer */}
+        {mobileOpen ? (
+          <div className="fixed inset-0 z-40 md:hidden">
+            <button type="button" className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} aria-label="Schließen" />
+            <div className="relative h-full w-[260px] border-r border-line shadow-2xl">{sidebar}</div>
           </div>
-        </div>
-      </footer>
+        ) : null}
+
+        <main className="flex min-w-0 flex-1 flex-col">{children}</main>
+      </div>
+    </ShellCtx.Provider>
+  );
+}
+
+/**
+ * Obsidian's tab header plus view header: one active tab with the view's icon
+ * and title, actions on the right.
+ */
+export function PaneHeader({
+  icon: Icon,
+  title,
+  actions,
+}: {
+  icon: typeof Waypoints;
+  title: string;
+  actions?: ReactNode;
+}) {
+  const { toggleSidebar } = useShell();
+  return (
+    <header className="flex h-10 shrink-0 items-end gap-1 border-b border-line bg-bg-2 px-2">
+      <button type="button" className="icon-btn mb-1.5 md:hidden" onClick={toggleSidebar} aria-label="Seitenleiste">
+        <PanelLeft {...SMALL} />
+      </button>
+      <div className="relative -mb-px flex h-8 min-w-0 max-w-[280px] items-center gap-2 rounded-t-lg border border-b-0 border-line bg-bg px-3 text-ui-small text-ink">
+        <Icon size={14} strokeWidth={1.75} className="shrink-0 text-muted" />
+        <span className="truncate">{title}</span>
+      </div>
+      <div className="flex-1" />
+      <div className="mb-1.5 flex items-center gap-1">{actions}</div>
+    </header>
+  );
+}
+
+/** Scrollable reading pane with Obsidian's readable line width. */
+export function PaneBody({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className={`mx-auto w-full px-5 pb-24 pt-8 md:px-8 ${wide ? "max-w-[980px]" : "max-w-[700px]"}`}>{children}</div>
     </div>
   );
 }

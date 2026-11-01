@@ -9,17 +9,17 @@ import {
   type FirebaseStorage,
 } from "firebase/storage";
 
+import type { Photo } from "../types";
 import { firebase } from "./client";
 
-const MAX_EDGE = 640;
-const MAX_BYTES = 5 * 1024 * 1024;
+const MAX_BYTES = 12 * 1024 * 1024;
 const OUTPUT_TYPE = "image/webp";
 
 function storage(): FirebaseStorage {
   const { app } = firebase();
   const s = getStorage(app);
   // The SDK default keeps retrying a failed upload for ten minutes, which reads
-  // as a frozen "Saving" button. Fail fast and let the person try again.
+  // as a frozen button. Fail fast and let the person try again.
   s.maxUploadRetryTime = 15_000;
   s.maxOperationRetryTime = 10_000;
   return s;
@@ -27,61 +27,70 @@ function storage(): FirebaseStorage {
 
 export class PhotoError extends Error {}
 
+/** How a picture is cut before upload. */
+export type PhotoShape =
+  | { kind: "square"; edge: number }
+  | { kind: "portrait"; width: number; height: number }
+  | { kind: "fit"; maxEdge: number };
+
+export const SHAPES = {
+  room: { kind: "fit", maxEdge: 1400 },
+  applicant: { kind: "portrait", width: 900, height: 1125 },
+  avatar: { kind: "square", edge: 400 },
+} satisfies Record<string, PhotoShape>;
+
 /**
- * Squares and shrinks the picture in the browser before it ever leaves the
- * device. Nobody needs a 12 megapixel portrait for a 44 pixel circle, and doing
- * it client side keeps upload cost and storage tiny.
+ * Crops and shrinks the picture in the browser before it leaves the device,
+ * which keeps uploads fast and storage tiny.
  */
-export async function preparePhoto(file: File): Promise<Blob> {
-  if (!file.type.startsWith("image/")) {
-    throw new PhotoError("That file is not an image.");
-  }
-  if (file.size > MAX_BYTES) {
-    throw new PhotoError("That image is larger than 5 MB. Please pick a smaller one.");
-  }
+export async function preparePhoto(file: File, shape: PhotoShape): Promise<Blob> {
+  if (!file.type.startsWith("image/")) throw new PhotoError("Das ist kein Bild.");
+  if (file.size > MAX_BYTES) throw new PhotoError("Das Bild ist größer als 12 MB.");
 
   const bitmap = await createImageBitmap(file);
-  const edge = Math.min(bitmap.width, bitmap.height);
-  const size = Math.min(MAX_EDGE, edge);
+  const { width: bw, height: bh } = bitmap;
+  let sx = 0;
+  let sy = 0;
+  let sw = bw;
+  let sh = bh;
+  let outW: number;
+  let outH: number;
+
+  if (shape.kind === "fit") {
+    const scale = Math.min(1, shape.maxEdge / Math.max(bw, bh));
+    outW = Math.round(bw * scale);
+    outH = Math.round(bh * scale);
+  } else {
+    const targetW = shape.kind === "square" ? shape.edge : shape.width;
+    const targetH = shape.kind === "square" ? shape.edge : shape.height;
+    const ratio = targetW / targetH;
+    if (bw / bh > ratio) {
+      sw = bh * ratio;
+      sx = (bw - sw) / 2;
+    } else {
+      sh = bw / ratio;
+      sy = (bh - sh) / 2;
+    }
+    const scale = Math.min(1, targetW / sw);
+    outW = Math.round(sw * scale);
+    outH = Math.round(sh * scale);
+  }
 
   const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
+  canvas.width = outW;
+  canvas.height = outH;
   const ctx = canvas.getContext("2d");
-  if (!ctx) throw new PhotoError("Your browser could not process the image.");
-
-  ctx.drawImage(
-    bitmap,
-    (bitmap.width - edge) / 2,
-    (bitmap.height - edge) / 2,
-    edge,
-    edge,
-    0,
-    0,
-    size,
-    size,
-  );
+  if (!ctx) throw new PhotoError("Dein Browser konnte das Bild nicht verarbeiten.");
+  ctx.drawImage(bitmap, sx, sy, sw, sh, 0, 0, outW, outH);
   bitmap.close();
 
-  const blob = await new Promise<Blob | null>((resolve) =>
-    canvas.toBlob(resolve, OUTPUT_TYPE, 0.86),
-  );
-  if (!blob) throw new PhotoError("Could not read that image.");
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, OUTPUT_TYPE, 0.84));
+  if (!blob) throw new PhotoError("Das Bild konnte nicht gelesen werden.");
   return blob;
 }
 
-export interface UploadedPhoto {
-  url: string;
-  path: string;
-}
-
-export async function uploadParticipantPhoto(
-  eventId: string,
-  uid: string,
-  file: File,
-): Promise<UploadedPhoto> {
-  const blob = await preparePhoto(file);
-  const path = `events/${eventId}/participants/${uid}.webp`;
+export async function uploadPhoto(path: string, file: File, shape: PhotoShape): Promise<Photo> {
+  const blob = await preparePhoto(file, shape);
   const objectRef = ref(storage(), path);
   try {
     await uploadBytes(objectRef, blob, {
@@ -91,16 +100,13 @@ export async function uploadParticipantPhoto(
     return { url: await getDownloadURL(objectRef), path };
   } catch (e) {
     const code = (e as { code?: string }).code ?? "";
-    if (code === "storage/unauthorized") {
-      throw new PhotoError("Your photo was rejected. Please pick a different image.");
-    }
-    throw new PhotoError(
-      "Could not upload your photo. Please check your connection and try again.",
-    );
+    if (code === "storage/unauthorized") throw new PhotoError("Das Bild wurde abgelehnt.");
+    throw new PhotoError("Hochladen hat nicht geklappt. Prüf deine Verbindung und versuch es nochmal.");
   }
 }
 
-export async function deleteParticipantPhoto(path: string): Promise<void> {
+export async function deletePhoto(path: string | null | undefined): Promise<void> {
+  if (!path) return;
   try {
     await deleteObject(ref(storage(), path));
   } catch {
@@ -108,7 +114,8 @@ export async function deleteParticipantPhoto(path: string): Promise<void> {
   }
 }
 
-/** Instant preview while the upload runs. */
-export function localPreview(file: File): string {
-  return URL.createObjectURL(file);
+export function randomId(length = 10): string {
+  const alphabet = "abcdefghijkmnpqrstuvwxyz23456789";
+  const bytes = crypto.getRandomValues(new Uint8Array(length));
+  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
 }

@@ -8,8 +8,8 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        // Event and profile pages hold participant data and must never be indexed.
-        disallow: ["/e/", "/p/", "/dashboard", "/create", "/signin"],
+        // Flat links and the dashboard hold applicant data and must never be indexed.
+        disallow: ["/w/", "/app", "/anmelden", "/api/"],
       },
     ],
     sitemap: `${site}/sitemap.xml`,

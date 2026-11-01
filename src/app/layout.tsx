@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from "next";
 
+// Fallback for systems without a good interface font, exactly like Obsidian.
 // Self hosted so no request ever leaves the page to a font CDN.
-import "@fontsource-variable/nunito";
+import "@fontsource-variable/inter";
 import "./globals.css";
 import { AuthProvider } from "@/lib/firebase/auth";
 
@@ -10,69 +11,35 @@ const site = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").repla
 export const metadata: Metadata = {
   metadataBase: new URL(site),
   title: {
-    default: "Pairspace | Participant Matching for Events",
+    default: "Pairspace | Die passende WG für deine Zimmer",
     template: "%s | Pairspace",
   },
   description:
-    "Create an event, define participant categories such as Base, Flyer, Leader or Follower, and share one link. Participants partner up themselves. No app needed.",
-  keywords: [
-    "participant matching for events",
-    "event participant matching",
-    "partner matching for events",
-    "find a partner at an event",
-    "dance partner matching for workshops",
-    "leader and follower matching",
-    "acro partner finder for festivals",
-    "workshop partner matching tool",
-    "participant partnering",
-    "event partner finder link",
-  ],
+    "Für Vermieter möblierter WG Zimmer: Bewerber bewerten sich gegenseitig, Pairspace findet die Gruppe, die wirklich zusammenpasst.",
   applicationName: "Pairspace",
-  authors: [{ name: "Pairspace" }],
-  creator: "Pairspace",
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
     url: site,
     siteName: "Pairspace",
-    title: "The easiest way to let participants partner up.",
-    description:
-      "Participant matching for events. One event link, no app download, no permanent participant profiles.",
-    locale: "en_US",
+    title: "Pairspace | Die passende WG für deine Zimmer",
+    description: "Bewerber bewerten sich gegenseitig, du siehst als Graph, wer zusammenpasst.",
+    locale: "de_DE",
   },
-  twitter: {
-    card: "summary_large_image",
-    title: "The easiest way to let participants partner up.",
-    description:
-      "Participant matching for events. One event link, no app download, no permanent participant profiles.",
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 },
-  },
-  category: "technology",
+  robots: { index: true, follow: true },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#faf5f2",
+  themeColor: "#1e1e1e",
   width: "device-width",
   initialScale: 1,
+  colorScheme: "dark",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    // data-scroll-behavior tells Next 16 to suspend smooth scrolling during
-    // route navigation, so a new page opens at the top instead of visibly
-    // scrolling there.
-    <html lang="en" data-scroll-behavior="smooth">
+    <html lang="de">
       <body>
-        <a
-          href="#main"
-          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-full focus:bg-ink focus:px-4 focus:py-2 focus:text-white"
-        >
-          Skip to content
-        </a>
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>

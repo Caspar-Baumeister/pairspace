@@ -1,7 +1,7 @@
 /**
- * Guards the copy rule: no hyphen characters in text the user reads.
- * Class names, imports, comments and code are ignored, only JSX text nodes and
- * common copy props are checked.
+ * Guards the copy rule: no Gedankenstriche (– or —) and no spaced hyphen used
+ * as a dash in text the user reads. Hyphens inside words such as WG-Zimmer
+ * are fine. Comments and imports are ignored.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -22,27 +22,16 @@ function check(file) {
   lines.forEach((line, i) => {
     if (/^\s*(\/\/|\*|\/\*)/.test(line)) return;
     if (/^\s*import\s/.test(line)) return;
-
-    // JSX text between tags, and quoted strings inside copy props.
-    const texts = [];
-    const jsx = line.match(/>([^<>{}]+)</g);
-    if (jsx) texts.push(...jsx.map((m) => m.slice(1, -1)));
-    const props = line.match(/(?:title|label|placeholder|description|q|a|blurb|body|line|detail|heading|name|subject)[:=]\s*"([^"]+)"/g);
-    if (props) texts.push(...props);
-
-    for (const t of texts) {
-      // L-basing is the established acro term, the hyphen is part of the word.
-      if (/\w-\w/.test(t) && !/https?:|@|\.(app|com|de)\b|[A-Za-z]+-[a-z]+-[a-z]+|L-bas/.test(t)) {
-        findings.push(`${file}:${i + 1}  ${t.trim()}`);
-      }
+    const strings = line.match(/>[^<>{}]+<|"[^"]*"|`[^`]*`/g) ?? [];
+    for (const s of strings) {
+      if (/[–—]/.test(s) || /\p{L} - \p{L}/u.test(s)) findings.push(`${file}:${i + 1}  ${s.trim()}`);
     }
   });
 }
 
 walk(ROOT);
-
 if (findings.length) {
-  console.error("Hyphens found in visible copy:\n" + findings.join("\n"));
+  console.error(`Dashes in user facing copy:\n${findings.join("\n")}`);
   process.exit(1);
 }
-console.log("Copy check passed, no hyphens in visible text.");
+console.log("Copy check passed.");

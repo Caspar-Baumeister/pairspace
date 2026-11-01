@@ -1,15 +1,19 @@
 "use client";
 
 import {
+  createUserWithEmailAndPassword,
+  EmailAuthProvider,
   GoogleAuthProvider,
-  OAuthProvider,
+  linkWithCredential,
+  linkWithPopup,
   onAuthStateChanged,
   signInAnonymously,
+  signInWithEmailAndPassword,
   signInWithPopup,
   signOut as fbSignOut,
+  updateProfile,
   type User,
 } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
 import {
   createContext,
   useCallback,
@@ -26,19 +30,31 @@ interface AuthState {
   user: User | null;
   loading: boolean;
   configured: boolean;
-  /** True while the user is only an anonymous participant session. */
+  /** True while the user is only an anonymous applicant session. */
   isAnonymous: boolean;
   signInWithGoogle: () => Promise<User>;
-  signInWithApple: () => Promise<User>;
+  signInWithEmail: (email: string, password: string) => Promise<User>;
+  signUpWithEmail: (email: string, password: string, name: string) => Promise<User>;
   ensureAnonymous: () => Promise<User>;
+  /** Turns an anonymous applicant session into a permanent account. */
+  linkGoogle: () => Promise<User>;
+  linkEmail: (email: string, password: string) => Promise<User>;
   signOut: () => Promise<void>;
 }
 
 const Ctx = createContext<AuthState | null>(null);
 
+function googleProvider() {
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: "select_account" });
+  return provider;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(firebaseConfigured);
+  // Linking mutates the same User object, so bump a counter to re-render.
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
     if (!firebaseConfigured) return;
@@ -49,44 +65,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const persistOrganizer = useCallback(async (u: User) => {
-    const { db } = firebase();
-    await setDoc(
-      doc(db, "users", u.uid),
-      {
-        uid: u.uid,
-        email: u.email,
-        displayName: u.displayName,
-        photoURL: u.photoURL,
-        updatedAt: Date.now(),
-      },
-      { merge: true },
-    );
-  }, []);
-
   const signInWithGoogle = useCallback(async () => {
     const { auth } = firebase();
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: "select_account" });
-    const res = await signInWithPopup(auth, provider);
-    await persistOrganizer(res.user);
-    return res.user;
-  }, [persistOrganizer]);
+    return (await signInWithPopup(auth, googleProvider())).user;
+  }, []);
 
-  const signInWithApple = useCallback(async () => {
+  const signInWithEmail = useCallback(async (email: string, password: string) => {
     const { auth } = firebase();
-    const provider = new OAuthProvider("apple.com");
-    provider.addScope("email");
-    provider.addScope("name");
-    const res = await signInWithPopup(auth, provider);
-    await persistOrganizer(res.user);
-    return res.user;
-  }, [persistOrganizer]);
+    return (await signInWithEmailAndPassword(auth, email, password)).user;
+  }, []);
+
+  const signUpWithEmail = useCallback(async (email: string, password: string, name: string) => {
+    const { auth } = firebase();
+    const { user: created } = await createUserWithEmailAndPassword(auth, email, password);
+    if (name) await updateProfile(created, { displayName: name });
+    return created;
+  }, []);
 
   const ensureAnonymous = useCallback(async () => {
     const { auth } = firebase();
     if (auth.currentUser) return auth.currentUser;
-    const res = await signInAnonymously(auth);
+    return (await signInAnonymously(auth)).user;
+  }, []);
+
+  const linkGoogle = useCallback(async () => {
+    const { auth } = firebase();
+    if (!auth.currentUser) throw new Error("Nicht angemeldet");
+    const res = await linkWithPopup(auth.currentUser, googleProvider());
+    setUser(res.user);
+    setVersion((v) => v + 1);
+    return res.user;
+  }, []);
+
+  const linkEmail = useCallback(async (email: string, password: string) => {
+    const { auth } = firebase();
+    if (!auth.currentUser) throw new Error("Nicht angemeldet");
+    const res = await linkWithCredential(auth.currentUser, EmailAuthProvider.credential(email, password));
+    setUser(res.user);
+    setVersion((v) => v + 1);
     return res.user;
   }, []);
 
@@ -102,11 +118,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       configured: firebaseConfigured,
       isAnonymous: Boolean(user?.isAnonymous),
       signInWithGoogle,
-      signInWithApple,
+      signInWithEmail,
+      signUpWithEmail,
       ensureAnonymous,
+      linkGoogle,
+      linkEmail,
       signOut,
     }),
-    [user, loading, signInWithGoogle, signInWithApple, ensureAnonymous, signOut],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [user, version, loading, signInWithGoogle, signInWithEmail, signUpWithEmail, ensureAnonymous, linkGoogle, linkEmail, signOut],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
@@ -116,4 +136,27 @@ export function useAuth(): AuthState {
   const ctx = useContext(Ctx);
   if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
   return ctx;
+}
+
+/** Readable German message for the common Firebase auth errors. */
+export function authErrorMessage(e: unknown): string {
+  const code = (e as { code?: string }).code ?? "";
+  switch (code) {
+    case "auth/invalid-credential":
+    case "auth/wrong-password":
+    case "auth/user-not-found":
+      return "Mail oder Passwort stimmen nicht.";
+    case "auth/email-already-in-use":
+    case "auth/credential-already-in-use":
+      return "Zu dieser Mail gibt es schon ein Konto.";
+    case "auth/weak-password":
+      return "Das Passwort braucht mindestens 6 Zeichen.";
+    case "auth/invalid-email":
+      return "Diese Mail sieht nicht richtig aus.";
+    case "auth/popup-closed-by-user":
+    case "auth/cancelled-popup-request":
+      return "";
+    default:
+      return "Das hat nicht geklappt. Bitte versuch es nochmal.";
+  }
 }

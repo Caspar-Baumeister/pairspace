@@ -1,27 +1,30 @@
 import "server-only";
 
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
+import { getAuth, type Auth } from "firebase-admin/auth";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
 
 let app: App | null = null;
 
 /**
- * Returns the admin Firestore instance, or null when no service account is
- * configured. Public pages fall back to client side reads in that case, so the
- * app still runs before Firebase is wired up.
+ * Admin SDK for route handlers. Uses FIREBASE_SERVICE_ACCOUNT_JSON when set,
+ * otherwise the default credentials of the runtime: App Hosting provides them
+ * in production, and locally the emulator hosts in .env.local take over.
  */
-export function adminDb(): Firestore | null {
+function adminApp(): App {
+  if (app) return app;
+  if (getApps().length) return (app = getApps()[0]);
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!raw) return null;
-  try {
-    if (!app) {
-      app = getApps().length
-        ? getApps()[0]
-        : initializeApp({ credential: cert(JSON.parse(raw)) });
-    }
-    return getFirestore(app);
-  } catch (error) {
-    console.error("Firebase admin init failed", error);
-    return null;
-  }
+  app = raw
+    ? initializeApp({ credential: cert(JSON.parse(raw)) })
+    : initializeApp({ projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID });
+  return app;
+}
+
+export function adminDb(): Firestore {
+  return getFirestore(adminApp());
+}
+
+export function adminAuth(): Auth {
+  return getAuth(adminApp());
 }

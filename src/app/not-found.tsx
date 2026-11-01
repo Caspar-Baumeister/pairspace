@@ -1,22 +1,20 @@
 import Link from "next/link";
 
-import { MascotSearch } from "@/components/mascot/Scenes";
+import { LogoMark } from "@/components/ui/Logo";
 
 export default function NotFound() {
   return (
-    <div className="wash flex min-h-dvh items-center justify-center px-6">
-      <div className="max-w-[420px] text-center">
-        <div className="pop mx-auto w-[200px]">
-          <MascotSearch className="w-full" label="Kai shades his eyes and looks around" />
+    <div className="flex min-h-dvh items-center justify-center px-6">
+      <div className="max-w-[380px] text-center">
+        <div className="mx-auto flex justify-center text-faint">
+          <LogoMark size={32} />
         </div>
-        <p className="eyebrow mt-4">Nothing here</p>
-        <h1 className="display-m mt-3">Kai looked everywhere</h1>
-        <p className="mt-3 text-[1rem] font-medium text-ink-muted">
-          This page does not exist. If you were following an event link, check it with the person
-          who sent it to you.
+        <h1 className="h3 mt-5">Diese Seite gibt es nicht</h1>
+        <p className="mt-2 text-muted">
+          Wenn du einem Link zu einer Wohnung gefolgt bist, frag am besten bei der Person nach, die ihn dir geschickt hat.
         </p>
-        <Link href="/" className="btn btn-primary mt-7 w-full sm:w-auto">
-          Go to the homepage
+        <Link href="/" className="btn btn-lg mt-6">
+          Zur Startseite
         </Link>
       </div>
     </div>

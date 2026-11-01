@@ -1,0 +1,25 @@
+import type { Subscription } from "./types";
+
+export const BASIC = {
+  id: "basic",
+  name: "Basic",
+  monthly: 9.99,
+  yearly: 100,
+  trialDays: 7,
+  maxFlats: 1,
+  maxRooms: 20,
+} as const;
+
+export function euro(value: number): string {
+  return value.toLocaleString("de-DE", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
+  });
+}
+
+/** Trial and paid subscriptions both unlock the link. */
+export function isActive(sub: Subscription | undefined | null, now = Date.now()): boolean {
+  if (!sub) return false;
+  return (sub.status === "trialing" || sub.status === "active") && sub.currentPeriodEnd > now;
+}

@@ -3,6 +3,8 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // The indicator sits on top of the ribbon's sign out button. Errors still show.
+  devIndicators: false,
   experimental: { optimizePackageImports: ["firebase"] },
   async headers() {
     return [
