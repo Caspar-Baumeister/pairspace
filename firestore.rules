@@ -41,7 +41,7 @@ service cloud.firestore {
     }
 
     function validRooms(data) {
-      return data.rooms is list && data.rooms.size() <= 20;
+      return data.rooms is list && data.rooms.size() <= 100;
     }
 
     match /landlords/{uid} {

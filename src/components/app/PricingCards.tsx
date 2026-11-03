@@ -8,7 +8,7 @@ import { BASIC, euro } from "@/lib/plans";
 import type { PlanInterval } from "@/lib/types";
 
 export const BASIC_FEATURES = [
-  `${BASIC.maxFlats} Wohnung mit bis zu ${BASIC.maxRooms} Zimmern`,
+  "Unbegrenzte Wohnungen",
   "Unbegrenzt viele Bewerber",
   "Matching Graph mit Clustern",
   "Beste Gruppen samt Zimmerverteilung",

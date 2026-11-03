@@ -404,6 +404,28 @@ body {
   animation: fade-up 280ms var(--ease-out-quint) both;
 }
 
+/* Landing page: slower and deeper than fade-up, with a little blur. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+.rise-in {
+  animation: rise-in 800ms var(--ease-out-quint) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rise-in {
+    animation: none;
+  }
+}
+
 @keyframes card-out-left {
   to {
     opacity: 0;

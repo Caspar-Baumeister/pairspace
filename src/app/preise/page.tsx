@@ -6,7 +6,7 @@ import { PublicPricing } from "./PublicPricing";
 
 export const metadata: Metadata = {
   title: "Preise",
-  description: "Basic: 9,99 € im Monat oder 100 € im Jahr. 7 Tage kostenlos testen.",
+  description: "9,99 € im Monat oder 100 € im Jahr, unbegrenzte Wohnungen. 7 Tage kostenlos testen.",
 };
 
 export default function PricingPage() {

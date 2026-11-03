@@ -195,7 +195,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Link href="/app/abo" className={`icon-btn h-8 w-8 ${pathname === "/app/abo" ? "is-active" : ""}`} aria-label="Abo" title="Abo">
             <CreditCard {...ICON} />
           </Link>
-          <Link href="/#so-gehts" className="icon-btn h-8 w-8" aria-label="Hilfe" title="Hilfe">
+          <Link href="/#video" className="icon-btn h-8 w-8" aria-label="Hilfe" title="Hilfe">
             <CircleHelp {...ICON} />
           </Link>
           <button

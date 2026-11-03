@@ -6,9 +6,10 @@ export const BASIC = {
   monthly: 9.99,
   yearly: 100,
   trialDays: 7,
-  maxFlats: 1,
-  maxRooms: 20,
 } as const;
+
+/** Technical ceiling per flat, never shown. Keeps the flat document small. */
+export const MAX_ROOMS = 100;
 
 export function euro(value: number): string {
   return value.toLocaleString("de-DE", {

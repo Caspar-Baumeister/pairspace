@@ -29,26 +29,34 @@ WG Matching für Vermieter möblierter Zimmer. Gleicher Name, gleiche Domain, gl
 ## 2. Das neue Produkt (Prototyp vom 31.10.2026)
 
 ### 2.1 Ablauf
-- **Vermieter:** Landingpage (bewusst schlicht, Design kommt mit dir), Konto (Google oder Mail), Wohnung anlegen, Zimmer mit Foto, Warmmiete, Größe, frei ab, kurz über sich, dann Tarif, dann Link mit QR-Code und fertigem Text für die Anzeige.
+- **Vermieter:** Landingpage, Konto (Google oder Mail), Wohnung anlegen, Zimmer mit Foto, Warmmiete, Größe, frei ab, kurz über sich, dann Tarif, dann Link mit QR-Code und fertigem Text für die Anzeige.
 - **Bewerber** (über den Link, ohne Konto, anonym angemeldet): Intro mit Wohnung, Zimmern und Datenschutz-Hinweis, dann Tinder-Karten der Mitbewerber mit fünf Knöpfen (Auf keinen Fall, Schlecht, Mittel, Gut, Unbedingt; Tasten 1 bis 5, Rückgängig), dann Zimmer sortieren (Gleichstand über "Gleich wichtig"), dann Profil wie bei Tinder (bis 6 Fotos im 3x2 Raster, Vorname, Alter, Beruf, Über mich, Interessen, Sprachen, Lifestyle, Einzug, Dauer, Vorschau), dann Kontakt (Mail Pflicht, Telefon freiwillig, Mail-Benachrichtigung an) und optional Konto sichern (Google oder Passwort). Wer zurückkommt, landet auf einer Übersicht mit neuen, noch nicht bewerteten Mitbewerbern.
 - **Graph (Herzstück):** Obsidian-Graph mit Profilfotos als Knoten. Gegenseitige Sympathie zieht zusammen und wird als Linie gezeichnet (dicker je stärker), Ablehnung stößt ohne Linie ab. Knotengröße = wie beliebt jemand ist, Ringfarbe = Cluster. Hover oder Klick hebt die Nachbarn violett hervor und blendet den Rest ab. Rechts: "Beste Gruppen" (Punkte, Harmonie, Zimmer, Bewertet als "5 von 6", Zimmerverteilung, schwächstes Paar, Gesamtmiete), "Alle" und "Person" (Profil, Kontakt, beste Gruppe mit dieser Person, Zimmerwünsche, wer wen wie bewertet). Einstellungen wie in Obsidian: freie Zimmer, Cluster färben, Namen, Ablehnungen, Kräfte.
 
 ### 2.2 Entscheidungen
 - **Privatsphäre:** Profile sehen nur Mitbewerber derselben Wohnung und der Vermieter. Bewertungen, Zimmerwünsche und Kontaktdaten sieht nur der Vermieter (per Firestore-Regeln erzwungen, 12 Angriffsfälle getestet). Deine Formulierung "nicht mit anderen Participants geteilt" habe ich so ausgelegt, weil Bewerber die anderen ja sehen müssen, um sie zu bewerten.
 - **Reihenfolge wie von dir gewünscht:** erst bewerten, dann Zimmer, dann Profil. Folge: Wer den Link hat, kann nach "Los geht's" die Profile sehen, ohne selbst eins anzulegen. Alternative wäre "erst zeigen, dann sehen". Sag Bescheid, wenn du das willst.
-- **Pricing:** Basic 9,99 € im Monat oder 100 € im Jahr, beide mit 7 Tagen gratis, 1 Wohnung, bis 20 Zimmer. Der Link geht erst live, wenn Testphase oder Abo aktiv sind (Firestore-Regel prüft das Abo). Im Prototyp startet `/api/abo` die Testphase ohne Zahlung. Genau dort kommt später Stripe Checkout hin.
+- **Pricing:** Basic 9,99 € im Monat oder 100 € im Jahr, beide mit 7 Tagen gratis, unbegrenzte Wohnungen. Zimmer haben keine sichtbare Grenze (technisch 100 pro Wohnung, damit das Dokument klein bleibt), genannt wird nur "Unbegrenzte Wohnungen". Seit 03.11.2026, vorher 1 Wohnung mit bis zu 20 Zimmern. Der Link geht erst live, wenn Testphase oder Abo aktiv sind (Firestore-Regel prüft das Abo). Im Prototyp startet `/api/abo` die Testphase ohne Zahlung. Genau dort kommt später Stripe Checkout hin.
 - **Sprache:** Oberfläche Deutsch, Du-Form, keine Gedankenstriche (`npm run check:copy`).
 - **Design:** Obsidian Dark nachgebaut: Systemschrift mit Inter als Fallback (wie Obsidian), Grautöne #1e1e1e bis #dadada, Akzent hsl(254 80% 68%), 13 px Oberfläche, 16 px Lesetext, Ribbon 44 px, Sidebar mit Dateibaum, Tabs, Statusleiste, Lucide-Icons mit Strich 1,75. Dribbble lieferte unter "Obsidian" nur fremde Finanz-Apps, Vorlage war daher obsidian.md selbst.
 
 ### 2.3 Datenmodell (Details in `src/lib/types.ts`)
 - `landlords/{uid}`: Vermieter, `subscription` schreibt nur der Server.
-- `flats/{flatId}`: Wohnung, ID ist zugleich der Code im Link `/w/{flatId}`, Zimmer als Array (max. 20), Status draft, live oder closed, Host-Snapshot für Bewerber.
+- `flats/{flatId}`: Wohnung, ID ist zugleich der Code im Link `/w/{flatId}`, Zimmer als Array (technisch max. 100), Status draft, live oder closed, Host-Snapshot für Bewerber.
 - `flats/{flatId}/applicants/{uid}`: Profil. Darunter `private/contact` (Mail, Telefon).
 - `flats/{flatId}/ballots/{uid}`: Bewertungen `{andereUid: -2..2}` und Zimmerränge `{roomId: Rang}`.
 - Storage: `landlords/{uid}/...` (Zimmerfotos, Vermieterfoto), `flats/{flatId}/applicants/{uid}/...` (Bewerberfotos). Der Pfad enthält immer die UID dessen, der schreiben darf.
 
 ### 2.4 Matching-Formel
 Ausführlich in `docs/MATCHING.md`. Kurz: Paargewicht = geometrisches Mittel beider Richtungen, Harmonie = halb Durchschnitt, halb schwächstes Paar, Zimmer per Hungarian-Algorithmus, Punkte = 75 % Harmonie + 25 % Zimmer, Veto schließt aus. Exakte Suche mit Branch and Bound bis 400 000 Gruppen, darüber lokale Suche. Cluster per Louvain.
+
+### 2.5 Landingpage (03.11.2026)
+Nach dem Vorbild von obsidian.md, bewusst kurz, ohne Kachelraster:
+- **Hero:** große linksbündige Headline, graue Unterzeile, violetter Button, darunter die Vermieter-App in einem Fenster (Seitenleiste mit mehreren Wohnungen). Im Graphen poppen 48 Bewerber nacheinander auf wie im Werbevideo, die Cluster färben sich, dann leuchtet die beste Gruppe auf und rechts erscheinen die besten Gruppen. Die Positionen rechnet d3-force einmal vorab (`src/components/landing/heroGraph.ts`), die Seite spielt sie mit 30 Bildern pro Sekunde ab. Hover hebt Nachbarn hervor. Bei reduzierter Bewegung steht sofort das Endbild.
+- **Video:** das Werbevideo aus `~/Code/pairspace-promo`, Deutsch und Englisch umschaltbar, läuft stumm, sobald es im Bild ist (`public/video`, je ca. 4,5 MB).
+- **Ein Link für alle Bewerber:** Text plus Handy, auf dem die echten Bewerberkarten und Bewertungsknöpfe von selbst durchlaufen.
+- **Drei Versprechen plus Preiskarte:** Weniger Besichtigungen, Mitbewohner, die bleiben, Diskret für alle; rechts Logo, "Unbegrenzte Wohnungen", Preis und Testlink.
+- Porträts: Unsplash (Unsplash License) in `public/faces` (160 px) und `public/people` (Handy).
 
 ## 3. Lokal starten
 Siehe README. Kurz: `npm run emulators`, `npm run seed`, `npm run dev`. Demo-Vermieter steht in `scripts/seed.mjs`. Alles läuft gegen die Emulatoren, nie gegen pairspace-live. Die Emulatoren brauchen Java 21, das Script nimmt `openjdk@21` aus Homebrew.
@@ -65,7 +73,5 @@ Siehe README. Kurz: `npm run emulators`, `npm run seed`, `npm run dev`. Demo-Ver
 3. **Stripe:** Checkout mit `trial_period_days: 7`, Webhook schreibt `landlords/{uid}.subscription`, Kundenportal zum Kündigen. Bis dahin gilt live: `/api/abo` startet die Testphase ohne Zahlung, und wer danach auf Abo klickt, bekommt 30 oder 365 Tage aktiv, ebenfalls ohne Zahlung.
 4. **Mails:** Function, die den Vermieter bei neuen Profilen und Bewerber (mit `notify`) bei neuen Mitbewerbern benachrichtigt. `mail.ts` mit Resend ist vorbereitet.
 5. **Fotos beim Löschen:** "Bewerbungen löschen" entfernt Profile, Bewertungen und Kontakte, aber nicht die Bewerberfotos in Storage (Pfad gehört dem Bewerber). Braucht eine Function. Der Satz im Intro "wird deine Bewerbung gelöscht" stimmt erst danach ganz.
-6. **Limit 1 Wohnung** wird nur in der Oberfläche erzwungen, nicht in den Regeln.
-7. **Landingpage** im Detail designen (Platzhalter steht).
-8. **Formel nachschärfen:** Wer alle mit Unbedingt bewertet (Max in den Demodaten), landet in vielen Vorschlägen, weil sein hoher Wert jedes Paargewicht anhebt. Gegenmittel: Bewertungen pro Person normalisieren (zum Beispiel auf ihren eigenen Durchschnitt), bevor das Paargewicht gerechnet wird.
-9. **Später:** Grundriss mit eingezeichneten Zimmern, bestehende Mitbewohner bewerten mit, Gewichtung Menschen und Zimmer als Regler für den Vermieter.
+6. **Formel nachschärfen:** Wer alle mit Unbedingt bewertet (Max in den Demodaten), landet in vielen Vorschlägen, weil sein hoher Wert jedes Paargewicht anhebt. Gegenmittel: Bewertungen pro Person normalisieren (zum Beispiel auf ihren eigenen Durchschnitt), bevor das Paargewicht gerechnet wird.
+7. **Später:** Grundriss mit eingezeichneten Zimmern, bestehende Mitbewohner bewerten mit, Gewichtung Menschen und Zimmer als Regler für den Vermieter.

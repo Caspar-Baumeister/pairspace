@@ -7,7 +7,7 @@ import { ErrorText } from "@/components/ui/Field";
 import { Spinner } from "@/components/ui/Spinner";
 import { newRoom, updateFlat } from "@/lib/firebase/data";
 import { deletePhoto, PhotoError, randomId, SHAPES, uploadPhoto } from "@/lib/firebase/storage";
-import { BASIC } from "@/lib/plans";
+import { MAX_ROOMS } from "@/lib/plans";
 import type { Flat, Room } from "@/lib/types";
 
 /**
@@ -30,7 +30,7 @@ export function RoomsEditor({
   const [saved, setSaved] = useState(false);
 
   const setCount = (count: number) => {
-    const n = Math.min(BASIC.maxRooms, Math.max(1, count));
+    const n = Math.min(MAX_ROOMS, Math.max(1, count));
     setRooms((list) => {
       if (n > list.length) return [...list, ...Array.from({ length: n - list.length }, (_, i) => newRoom(list.length + i))];
       return list.slice(0, n);
@@ -83,7 +83,6 @@ export function RoomsEditor({
       <div className="setting">
         <div className="min-w-0 flex-1">
           <div className="setting-name">Anzahl Zimmer</div>
-          <div className="setting-desc">Im Basic Tarif bis zu {BASIC.maxRooms} Zimmer pro Wohnung.</div>
         </div>
         <div className="flex items-center gap-1">
           <button type="button" className="btn h-8 w-8 px-0" onClick={() => setCount(rooms.length - 1)} aria-label="Ein Zimmer weniger">
