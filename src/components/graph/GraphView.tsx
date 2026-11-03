@@ -470,10 +470,18 @@ function GroupsPanel({
                 <div className="mt-2 truncate pl-8 text-ui-small text-muted">
                   {g.members.map((id) => byId.get(id)?.firstName).join(", ")}
                 </div>
-                <div className="mt-2.5 grid grid-cols-3 gap-2 pl-8">
+                {/* The last column fits "12 von 12", the bars share the rest. */}
+                <div className="mt-2.5 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 pl-8">
                   <Meter label="Harmonie" value={g.harmony} />
                   <Meter label="Zimmer" value={g.roomFit} />
-                  <Meter label="Sicherheit" value={g.confidence} muted />
+                  {g.possible ? (
+                    <Meter
+                      label="Bewertet"
+                      value={g.rated / g.possible}
+                      display={`${g.rated} von ${g.possible}`}
+                      muted
+                    />
+                  ) : null}
                 </div>
 
                 {selected ? (
@@ -574,20 +582,32 @@ function Explainer() {
       </p>
       <p>
         <span className="text-ink">Punkte</span> = 75 % Harmonie + 25 % Zimmer. Ein &quot;Auf keinen Fall&quot; in einer
-        Richtung schließt die Gruppe aus. Fehlende Bewertungen zählen neutral und senken die{" "}
-        <span className="text-ink">Sicherheit</span>.
+        Richtung schließt die Gruppe aus. Fehlende Bewertungen zählen als Mittel.{" "}
+        <span className="text-ink">Bewertet</span> zeigt, wie viele der möglichen Bewertungen in der Gruppe schon
+        abgegeben sind, bei drei Personen zum Beispiel 5 von 6.
       </p>
       <p>Wir prüfen jede mögliche Gruppe, bei sehr vielen Bewerbern eine lokale Suche.</p>
     </div>
   );
 }
 
-function Meter({ label, value, muted = false }: { label: string; value: number; muted?: boolean }) {
+function Meter({
+  label,
+  value,
+  display,
+  muted = false,
+}: {
+  label: string;
+  value: number;
+  /** Replaces the percentage on the right. */
+  display?: string;
+  muted?: boolean;
+}) {
   return (
     <div>
-      <div className="flex justify-between text-[10px] text-faint">
-        <span>{label}</span>
-        <span className="tabular-nums">{Math.round(value * 100)}</span>
+      <div className="flex justify-between gap-1.5 text-[10px] text-faint">
+        <span className="truncate">{label}</span>
+        <span className="shrink-0 tabular-nums">{display ?? Math.round(value * 100)}</span>
       </div>
       <div className="mt-1 h-[3px] overflow-hidden rounded-full bg-base-30">
         <div className={`h-full rounded-full ${muted ? "bg-base-60" : "bg-accent"}`} style={{ width: `${Math.round(value * 100)}%` }} />

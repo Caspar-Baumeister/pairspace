@@ -19,7 +19,7 @@ Jede Bewerberin, jeder Bewerber gibt zwei Dinge ab:
 | Gut | 0,75 |
 | Unbedingt | 1 |
 
-Fehlt eine Bewertung (zum Beispiel weil jemand später dazukam), zählt sie neutral mit 0,5 und senkt dafür die Sicherheit (siehe unten).
+Fehlt eine Bewertung (zum Beispiel weil jemand später dazukam), zählt sie neutral mit 0,5 und fehlt dafür in der Anzeige "Bewertet" (siehe unten).
 
 Für jedes Paar i, j:
 
@@ -45,7 +45,7 @@ Punkte    S(G) = 100 · (0,75 · H + 0,25 · R)
 - Zimmerzufriedenheit einer Person mit m Zimmern: `(m − Rang) / (m − 1)`, also 1 für den Favoriten und 0 für das letzte Zimmer.
 - Die Zimmer verteilt der **Hungarian Algorithmus** (Kuhn Munkres) optimal: er maximiert die Summe der Zufriedenheit über alle Zuordnungen, in O(k³).
 - Enthält G ein Veto, wird G nie vorgeschlagen.
-- **Sicherheit** = Anteil der vorhandenen Bewertungen innerhalb der Gruppe (k · (k − 1) Richtungen). Sie fließt nicht in die Punkte ein, sondern zeigt, wie belastbar die Zahl ist.
+- **Bewertet** = wie viele der k · (k − 1) möglichen Bewertungen innerhalb der Gruppe schon abgegeben sind, angezeigt als "5 von 6". Fließt nicht in die Punkte ein, sondern zeigt, wie belastbar die Zahl ist. Bei einer Gruppe aus einer Person entfällt die Anzeige.
 
 ## 4. Die beste Gruppe finden
 

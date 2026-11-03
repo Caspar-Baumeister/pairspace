@@ -22,7 +22,7 @@
 import type { Applicant, Ballot, Room, Vote } from "./types";
 
 export const VOTE_UTILITY: Record<Vote, number> = { [-2]: 0, [-1]: 0.25, 0: 0.5, 1: 0.75, 2: 1 };
-/** A missing vote is treated as neutral and lowers the confidence instead. */
+/** A missing vote is treated as neutral and shows up in the group's rated count instead. */
 const UNKNOWN = 0.5;
 export const HARMONY_WEIGHT = 0.75;
 
@@ -110,8 +110,9 @@ export interface GroupResult {
   roomFit: number;
   /** uid to room id. */
   assignment: Record<string, string>;
-  /** Share of directed votes inside the group that exist, 0 to 1. */
-  confidence: number;
+  /** Directed votes inside the group that exist, out of possible = k · (k − 1). */
+  rated: number;
+  possible: number;
   /** Pairs where both said good or absolutely. */
   mutualLikes: number;
 }
@@ -152,7 +153,8 @@ export function evaluateGroup(model: MatchModel, members: number[]): GroupResult
     minPair,
     roomFit: fit,
     assignment,
-    confidence: pairs ? known / (pairs * 2) : 1,
+    rated: known,
+    possible: pairs * 2,
     mutualLikes,
   };
 }
