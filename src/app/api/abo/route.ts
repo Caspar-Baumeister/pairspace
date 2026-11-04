@@ -114,7 +114,12 @@ export async function POST(request: Request) {
     customer_update: { name: "auto", address: "auto" },
     locale,
     // The Stripe account is shared with Immotrim, so the page names Pairspace itself.
-    branding_settings: { display_name: "Pairspace", button_color: "#8b6cef" },
+    branding_settings: {
+      display_name: "Pairspace",
+      button_color: "#8b6cef",
+      // Stripe fetches the icon itself, which localhost cannot serve.
+      ...(site.startsWith("https://") ? { icon: { type: "url" as const, url: `${site}/icon-maskable-512.png` } } : {}),
+    },
     custom_text: { submit: { message: message.charAt(0).toUpperCase() + message.slice(1) } },
     metadata: { uid: caller.uid, consentAt: new Date(now).toISOString(), interval },
     success_url: `${site}${returnPath}?checkout={CHECKOUT_SESSION_ID}`,

@@ -12,6 +12,7 @@ WG Matching für Vermieter möblierter Zimmer. Gleicher Name, gleiche Domain, gl
 - App Hosting Backend `pairspace` in europe-west4, verbunden mit GitHub `Caspar-Baumeister/pairspace`, deployt bei jedem Push auf `master`. URL https://pairspace--pairspace-live.europe-west4.hosted.app, Custom Domain joinpairspace.com.
 - Auth: Google, Apple (Services ID mit joinpairspace.com), anonym. joinpairspace.com ist als Authorized Domain eingetragen.
 - Resend für Mails (Secret `RESEND_API_KEY`, Absender hello@joinpairspace.com), Code in `functions/src/mail.ts`.
+- App-Icon (drei verbundene Punkte, oben lila, wie das Logo): alle Größen kommen aus `node scripts/icons.mjs`, also Browser-Tab, iPhone-Homescreen, Android und das Icon im Stripe Checkout.
 
 **Aufgeräumt am 31.10.2026 (mit deiner Freigabe):**
 - Firestore komplett geleert: 5 Events, 7 Teilnehmer samt Kontakten, 1 Verbindung, 2 Watcher, 2 Feedbacks, 5 Slugs, 1 Nutzer. Die alte Function `onParticipantRemoved` hat beim Löschen zwei leere Event-Hüllen neu angelegt, die habe ich im zweiten Durchgang gelöscht. Danach war alles leer.
