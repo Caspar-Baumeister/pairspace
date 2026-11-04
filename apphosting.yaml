@@ -44,6 +44,13 @@ env:
     availability:
       - BUILD
       - RUNTIME
+  # PostHog project key (phc_...), public like the Firebase config. Without it
+  # the site sends no analytics. Uncomment once the Pairspace project exists.
+  # - variable: NEXT_PUBLIC_POSTHOG_KEY
+  #   value: phc_...
+  #   availability:
+  #     - BUILD
+  #     - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
     value: 1:865487163332:web:c15d2ca59a21af1fd7de91
     availability:

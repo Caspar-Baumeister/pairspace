@@ -37,7 +37,7 @@ WG Matching für Vermieter möblierter Zimmer. Gleicher Name, gleiche Domain, gl
 - **Privatsphäre:** Profile sehen nur Mitbewerber derselben Wohnung und der Vermieter. Bewertungen, Zimmerwünsche und Kontaktdaten sieht nur der Vermieter (per Firestore-Regeln erzwungen, 12 Angriffsfälle getestet). Deine Formulierung "nicht mit anderen Participants geteilt" habe ich so ausgelegt, weil Bewerber die anderen ja sehen müssen, um sie zu bewerten.
 - **Reihenfolge wie von dir gewünscht:** erst bewerten, dann Zimmer, dann Profil. Folge: Wer den Link hat, kann nach "Los geht's" die Profile sehen, ohne selbst eins anzulegen. Alternative wäre "erst zeigen, dann sehen". Sag Bescheid, wenn du das willst.
 - **Pricing:** Basic 9,99 € im Monat oder 100 € im Jahr, beide mit 7 Tagen gratis, unbegrenzte Wohnungen. Zimmer haben keine sichtbare Grenze (technisch 100 pro Wohnung, damit das Dokument klein bleibt), genannt wird nur "Unbegrenzte Wohnungen". Seit 03.11.2026, vorher 1 Wohnung mit bis zu 20 Zimmern. Der Link geht erst live, wenn Testphase oder Abo aktiv sind (Firestore-Regel prüft das Abo). Im Prototyp startet `/api/abo` die Testphase ohne Zahlung. Genau dort kommt später Stripe Checkout hin.
-- **Sprache:** Oberfläche Deutsch, Du-Form, keine Gedankenstriche (`npm run check:copy`).
+- **Sprache:** Deutsch und Englisch (seit 03.11.2026, siehe 2.6), Du-Form, keine Gedankenstriche in beiden Sprachen (`npm run check:copy`).
 - **Design:** Obsidian Dark nachgebaut: Systemschrift mit Inter als Fallback (wie Obsidian), Grautöne #1e1e1e bis #dadada, Akzent hsl(254 80% 68%), 13 px Oberfläche, 16 px Lesetext, Ribbon 44 px, Sidebar mit Dateibaum, Tabs, Statusleiste, Lucide-Icons mit Strich 1,75. Dribbble lieferte unter "Obsidian" nur fremde Finanz-Apps, Vorlage war daher obsidian.md selbst.
 
 ### 2.3 Datenmodell (Details in `src/lib/types.ts`)
@@ -58,20 +58,37 @@ Nach dem Vorbild von obsidian.md, bewusst kurz, ohne Kachelraster:
 - **Drei Versprechen plus Preiskarte:** Weniger Besichtigungen, Mitbewohner, die bleiben, Diskret für alle; rechts Logo, "Unbegrenzte Wohnungen", Preis und Testlink.
 - Porträts: Unsplash (Unsplash License) in `public/faces` (160 px) und `public/people` (Handy).
 
+### 2.6 Deutsch und Englisch (03.11.2026)
+- **Adressen:** Deutsch ohne Präfix wie bisher (`/`, `/preise`, `/app`, `/w/{id}`), Englisch unter `/en` (`/en`, `/en/preise`, `/en/w/{id}`). Alle Seiten liegen unter `src/app/[lang]/`, `next.config.ts` schreibt die deutschen Pfade intern auf `/de/...` um. `/de/...` leitet auf die Adresse ohne Präfix um. So bleiben alle Seiten vorgerendert und gecacht, und Google sieht beide Sprachen (hreflang, Sitemap mit beiden).
+- **Umschalter:** DE | EN in der Navigation, im Footer, in der Vermieter-App und auf der Anmeldeseite. Die Wahl landet im Cookie `lang` (ein Jahr) und gilt beim nächsten Besuch.
+- **Automatisch:** Ohne gespeicherte Wahl springt ein Browser, der kein Deutsch spricht, von den deutschen Seiten auf Englisch. Umgekehrt nie: Ein `/en`-Link bleibt englisch. Suchmaschinen werden nicht umgeleitet. Der Bewerberlink bleibt `/w/{id}` ohne Sprache, internationale Bewerber landen so automatisch im Englischen.
+- **Texte:** stehen direkt im Code als `t("Deutsch", "English")` (`src/lib/i18n`). Gespeicherte Werte wie Interessen und Sprachen bleiben deutsch und werden beim Anzeigen übersetzt. Das Video startet in der Seitensprache.
+
+### 2.7 Analytics mit PostHog (03.11.2026)
+- `src/lib/analytics.ts`, EU-Cloud, über den eigenen Proxy `/ingest` (Werbeblocker blocken sonst `i.posthog.com`).
+- **Ohne Cookies** (`cookieless_mode: "always"`): kein Cookie, kein Local Storage, PostHog zählt Besucher über einen täglich wechselnden Hash auf seinem Server. Deshalb kein Cookie-Banner nötig. Keine Personenprofile, kein Session Replay, kein Autocapture. Sendet nur auf joinpairspace.com, lokal nie.
+- **Events:** Seitenaufrufe automatisch, dazu `cta_clicked`, `language_switched`, Video (`video_started`, `video_progress` 25/50/75, `video_completed`, `video_paused`, `video_language_changed`, alle mit `lang`), `signed_in`, `flat_created`, `rooms_saved`, `plan_started`, `link_copied`, `qr_downloaded`, `graph_opened`, `group_opened`, Bewerber-Funnel `applicant_intro_viewed` bis `applicant_contact_done`, `feedback_opened`, `feedback_sent`. Jedes Event trägt `locale`. Liste in `src/lib/analytics.ts`.
+- Key kommt aus `NEXT_PUBLIC_POSTHOG_KEY` in `apphosting.yaml`. Leer heißt: keine Analytics.
+
+### 2.8 Feedback, Wünsche und Bugs (03.11.2026)
+- Sprechblasen-Knopf in der Vermieter-App (Ribbon und Handy-Menü) und in jedem Schritt des Bewerber-Flows. Fenster mit Wunsch, Feedback oder Bug, Text und freiwilliger Mail für eine Antwort.
+- Landet in Firestore unter `feedback/{id}` (nur anlegen, niemand liest es im Client, Regeln getestet). Die Function `onFeedbackCreated` (europe-west1, Resend) schickt jede Nachricht an caspar.baumeister.privat@gmail.com, mit Antworten-an auf die Mail der Person, Seite, Sprache und Gerät.
+
 ## 3. Lokal starten
 Siehe README. Kurz: `npm run emulators`, `npm run seed`, `npm run dev`. Demo-Vermieter steht in `scripts/seed.mjs`. Alles läuft gegen die Emulatoren, nie gegen pairspace-live. Die Emulatoren brauchen Java 21, das Script nimmt `openjdk@21` aus Homebrew.
 
 ## 4. Getestet (31.10.2026)
 - `npm run test:matching`: Hungarian, exakte Suche und Suche mit fester Person gegen Brute Force, lokale Suche trifft das Optimum, Veto, Gegenseitigkeit, Cluster.
-- `npm run test:rules`: 12 Fälle (fremde Bewertungen, fremde Kontaktdaten, selbst geschriebenes Abo, fremde Wohnung ändern und so weiter).
+- `npm run test:rules`: 16 Fälle (seit 03.11.2026 inklusive Feedback) (fremde Bewertungen, fremde Kontaktdaten, selbst geschriebenes Abo, fremde Wohnung ändern und so weiter).
 - `npm run typecheck`, `next build`, `npm run check:copy`: sauber.
 - Im Browser durchgeklickt: Landingpage, Registrierung, Wohnung anlegen, Zimmerfoto hochladen, Über dich, Testphase, Link mit QR-Code. Als Bewerber am Handy-Format: Intro, drei Bewertungen, Zimmer mit Gleichstand, Profil mit Foto, Kontakt, Abschluss. Als Demo-Vermieter: Graph mit drei Lagern, Auswahl, Personen-Panel, Gruppenliste.
 
 ## 5. Offen
 1. **Mail-Anmeldung einschalten:** Im Live-Projekt sind nur Google, Apple und anonym aktiv. Ohne den Anbieter "E-Mail/Passwort" scheitern die Registrierung per Mail und "Konto mit Passwort sichern" bei Bewerbern. Firebase Console, Authentication, Sign-in method, E-Mail/Passwort aktivieren (ohne Link-Anmeldung). Google-Login funktioniert schon.
 2. **Rechtliches, dringend:** Die Seite ist live, aber Impressum und Datenschutzerklärung fehlen (alte `/privacy` und `/terms` waren englische Entwürfe und sind raus).
-3. **Stripe:** Checkout mit `trial_period_days: 7`, Webhook schreibt `landlords/{uid}.subscription`, Kundenportal zum Kündigen. Bis dahin gilt live: `/api/abo` startet die Testphase ohne Zahlung, und wer danach auf Abo klickt, bekommt 30 oder 365 Tage aktiv, ebenfalls ohne Zahlung.
-4. **Mails:** Function, die den Vermieter bei neuen Profilen und Bewerber (mit `notify`) bei neuen Mitbewerbern benachrichtigt. `mail.ts` mit Resend ist vorbereitet.
-5. **Fotos beim Löschen:** "Bewerbungen löschen" entfernt Profile, Bewertungen und Kontakte, aber nicht die Bewerberfotos in Storage (Pfad gehört dem Bewerber). Braucht eine Function. Der Satz im Intro "wird deine Bewerbung gelöscht" stimmt erst danach ganz.
-6. **Formel nachschärfen:** Wer alle mit Unbedingt bewertet (Max in den Demodaten), landet in vielen Vorschlägen, weil sein hoher Wert jedes Paargewicht anhebt. Gegenmittel: Bewertungen pro Person normalisieren (zum Beispiel auf ihren eigenen Durchschnitt), bevor das Paargewicht gerechnet wird.
-7. **Später:** Grundriss mit eingezeichneten Zimmern, bestehende Mitbewohner bewerten mit, Gewichtung Menschen und Zimmer als Regler für den Vermieter.
+3. **Stripe, es gibt noch keine Zahlung:** Live startet `/api/abo` die Testphase ohne Zahlung, und wer danach auf Abo klickt, bekommt 30 oder 365 Tage aktiv, ebenfalls ohne Zahlung, beliebig oft. Plan: Stripe Checkout mit `trial_period_days: 7`, Webhook schreibt `landlords/{uid}.subscription`, Kundenportal zum Kündigen. Braucht von dir: Stripe-Konto (das von Immotrim oder ein neues), Produkt Basic mit 9,99 €/Monat und 100 €/Jahr, Secret Key und Webhook-Secret im Secret Manager.
+4. **PostHog-Key fehlt:** Der Code ist fertig, aber das Projekt "Pairspace" in PostHog EU gibt es noch nicht (im Browser von Claude war PostHog nicht eingeloggt). Projekt anlegen, unter Settings "Cookieless server hash mode" einschalten, den `phc_`-Key in `apphosting.yaml` eintragen (Block ist vorbereitet), pushen.
+5. **Mails:** Function, die den Vermieter bei neuen Profilen und Bewerber (mit `notify`) bei neuen Mitbewerbern benachrichtigt. `mail.ts` mit Resend ist vorbereitet.
+6. **Fotos beim Löschen:** "Bewerbungen löschen" entfernt Profile, Bewertungen und Kontakte, aber nicht die Bewerberfotos in Storage (Pfad gehört dem Bewerber). Braucht eine Function. Der Satz im Intro "wird deine Bewerbung gelöscht" stimmt erst danach ganz.
+7. **Formel nachschärfen:** Wer alle mit Unbedingt bewertet (Max in den Demodaten), landet in vielen Vorschlägen, weil sein hoher Wert jedes Paargewicht anhebt. Gegenmittel: Bewertungen pro Person normalisieren (zum Beispiel auf ihren eigenen Durchschnitt), bevor das Paargewicht gerechnet wird.
+8. **Später:** Grundriss mit eingezeichneten Zimmern, bestehende Mitbewohner bewerten mit, Gewichtung Menschen und Zimmer als Regler für den Vermieter.

@@ -3,7 +3,10 @@
 import { Lock, PartyPopper, Undo2, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { track } from "@/lib/analytics";
 import { saveVote } from "@/lib/firebase/data";
+import { useLocale, useT } from "@/lib/i18n/client";
+import { interestLabel } from "@/lib/options";
 import type { Applicant, Vote } from "@/lib/types";
 import { BottomBar, Column, FlowHeader } from "./FlowShell";
 import { ProfileCard } from "./ProfileCard";
@@ -45,6 +48,8 @@ export function RateStep({
   onDone: () => void;
   onBack?: () => void;
 }) {
+  const t = useT();
+  const locale = useLocale();
   const serial = useSerial();
   // Optimistic overlay over the stored votes. null means removed by undo.
   const [local, setLocal] = useState<Record<string, Vote | null>>({});
@@ -85,7 +90,12 @@ export function RateStep({
       setError("");
       setLeaving({ id, dir: directionOf(value) });
       serial(() => saveVote(flatId, uid, id, value)).catch(() =>
-        setError("Eine Bewertung konnte nicht gespeichert werden. Prüf deine Verbindung."),
+        setError(
+          t(
+            "Eine Bewertung konnte nicht gespeichert werden. Prüf deine Verbindung.",
+            "A rating could not be saved. Check your connection.",
+          ),
+        ),
       );
       timer.current = setTimeout(() => {
         setLocal((l) => ({ ...l, [id]: value }));
@@ -94,7 +104,7 @@ export function RateStep({
         setLeaving(null);
       }, ANIMATION_MS);
     },
-    [top, leaving, serial, flatId, uid],
+    [top, leaving, serial, flatId, uid, t],
   );
 
   const undo = useCallback(() => {
@@ -123,17 +133,35 @@ export function RateStep({
     return () => window.removeEventListener("keydown", onKey);
   }, [vote, undo]);
 
+  // Only the first pass counts for the funnel, not later visits from the overview.
+  const finish = () => {
+    if (!returning) track("applicant_rating_done", { rated });
+    onDone();
+  };
+
   const header = (
     <FlowHeader
-      title={returning ? "Mitbewerber einschätzen" : flatTitle}
-      subtitle={top ? `Person ${position} von ${total}` : returning ? undefined : "Schritt 1 von 4"}
+      title={returning ? t("Mitbewerber einschätzen", "Rate the other applicants") : flatTitle}
+      subtitle={
+        top
+          ? t(`Person ${position} von ${total}`, `Person ${position} of ${total}`)
+          : returning
+            ? undefined
+            : t("Schritt 1 von 4", "Step 1 of 4")
+      }
       onBack={onBack}
       step={returning ? undefined : 0}
+      flatId={flatId}
       right={
         history.length ? (
-          <button type="button" className="btn btn-ghost" onClick={undo} aria-label="Letzte Bewertung zurücknehmen">
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={undo}
+            aria-label={t("Letzte Bewertung zurücknehmen", "Undo last rating")}
+          >
             <Undo2 size={15} strokeWidth={1.75} />
-            Zurück
+            {t("Zurück", "Undo")}
           </button>
         ) : null
       }
@@ -149,14 +177,24 @@ export function RateStep({
           <span className="flex h-14 w-14 items-center justify-center rounded-full border border-line bg-base-10 text-accent">
             {nobody ? <Users size={24} strokeWidth={1.75} /> : <PartyPopper size={24} strokeWidth={1.75} />}
           </span>
-          <h2 className="h3 mt-5 text-ink">{nobody ? "Du bist unter den Ersten" : "Alle eingeschätzt"}</h2>
+          <h2 className="h3 mt-5 text-ink">
+            {nobody ? t("Du bist unter den Ersten", "You are one of the first") : t("Alle eingeschätzt", "Everyone rated")}
+          </h2>
           <p className="mt-2 max-w-[320px] text-ui-medium leading-relaxed text-muted">
             {nobody
-              ? "Sobald weitere Bewerber dazukommen, kannst du sie hier einschätzen."
-              : `Du hast alle ${total} Mitbewerber eingeschätzt. Wenn jemand Neues dazukommt, kannst du später weitermachen.`}
+              ? t(
+                  "Sobald weitere Bewerber dazukommen, kannst du sie hier einschätzen.",
+                  "As soon as more applicants join, you can rate them here.",
+                )
+              : t(
+                  `Du hast alle ${total} Mitbewerber eingeschätzt. Wenn jemand Neues dazukommt, kannst du später weitermachen.`,
+                  total === 1
+                    ? "You have rated the other applicant. If someone new joins, you can carry on later."
+                    : `You have rated all ${total} other applicants. If someone new joins, you can carry on later.`,
+                )}
           </p>
-          <button type="button" className="btn btn-cta btn-lg mt-7 w-full max-w-[320px]" onClick={onDone}>
-            {returning ? "Zur Übersicht" : "Weiter zu den Zimmern"}
+          <button type="button" className="btn btn-cta btn-lg mt-7 w-full max-w-[320px]" onClick={finish}>
+            {returning ? t("Zur Übersicht", "Back to overview") : t("Weiter zu den Zimmern", "On to the rooms")}
           </button>
         </Column>
       </div>
@@ -184,9 +222,9 @@ export function RateStep({
           {top.bio ? <p className="whitespace-pre-line text-[15px] leading-relaxed text-ink">{top.bio}</p> : null}
           {top.interests?.length ? (
             <div className="flex flex-wrap gap-1.5">
-              {top.interests.map((t) => (
-                <span key={t} className="tag">
-                  #{t}
+              {top.interests.map((interest) => (
+                <span key={interest} className="tag">
+                  #{interestLabel(interest, locale)}
                 </span>
               ))}
             </div>
@@ -197,18 +235,19 @@ export function RateStep({
 
       <BottomBar>
         <p className="mb-3 text-center text-ui-small text-muted">
-          Wie gut könntest du mit <span className="font-semibold text-ink">{top.firstName || "dieser Person"}</span>{" "}
-          zusammen wohnen?
+          {t("Wie gut könntest du mit ", "How well could you live with ")}
+          <span className="font-semibold text-ink">{top.firstName || t("dieser Person", "this person")}</span>
+          {t(" zusammen wohnen?", "?")}
         </p>
         <VoteButtons onVote={vote} disabled={Boolean(leaving)} />
         <div className="mt-3 flex items-center justify-between gap-3">
           <p className="flex items-center gap-1.5 text-ui-smaller text-faint">
             <Lock size={11} strokeWidth={2} />
-            Deine Einschätzung sieht nur der Vermieter.
+            {t("Deine Einschätzung sieht nur der Vermieter.", "Only the landlord sees your rating.")}
           </p>
           {!returning ? (
-            <button type="button" className="text-ui-smaller text-faint underline-offset-2 hover:text-muted hover:underline" onClick={onDone}>
-              Später weiter
+            <button type="button" className="text-ui-smaller text-faint underline-offset-2 hover:text-muted hover:underline" onClick={finish}>
+              {t("Später weiter", "Skip for now")}
             </button>
           ) : null}
         </div>

@@ -5,8 +5,10 @@ import { useMemo, useRef, useState, type ReactNode } from "react";
 
 import { Field } from "@/components/ui/Field";
 import { Spinner } from "@/components/ui/Spinner";
+import { track } from "@/lib/analytics";
 import { emptyApplicant, emptyLifestyle, saveApplicant } from "@/lib/firebase/data";
 import { PhotoError, SHAPES, deletePhoto, randomId, uploadPhoto } from "@/lib/firebase/storage";
+import { useLocale, useT } from "@/lib/i18n/client";
 import {
   CLEANLINESS,
   FLAT_LIFE,
@@ -16,6 +18,9 @@ import {
   MAX_PHOTOS,
   RHYTHM,
   STAY,
+  interestLabel,
+  languageLabel,
+  type Label,
 } from "@/lib/options";
 import type { Applicant, Lifestyle } from "@/lib/types";
 import { BottomBar, Column, FlowHeader } from "./FlowShell";
@@ -35,10 +40,11 @@ function ChipChoice<T extends string | boolean>({
   value,
   onChange,
 }: {
-  options: { value: T; label: string }[];
+  options: { value: T; label: Label }[];
   value: T | null;
   onChange: (value: T | null) => void;
 }) {
+  const t = useT();
   return (
     <div className="flex flex-wrap gap-1.5">
       {options.map((o) => (
@@ -49,7 +55,7 @@ function ChipChoice<T extends string | boolean>({
           aria-pressed={value === o.value}
           onClick={() => onChange(value === o.value ? null : o.value)}
         >
-          {o.label}
+          {t(o.label.de, o.label.en)}
         </button>
       ))}
     </div>
@@ -68,13 +74,13 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
   );
 }
 
-const YES_NO_SMOKE = [
-  { value: false, label: "Nichtraucher" },
-  { value: true, label: "Raucher" },
+const YES_NO_SMOKE: { value: boolean; label: Label }[] = [
+  { value: false, label: { de: "Nichtraucher", en: "I don't smoke" } },
+  { value: true, label: { de: "Raucher", en: "I smoke" } },
 ];
-const YES_NO_PETS = [
-  { value: false, label: "Kein Haustier" },
-  { value: true, label: "Bringe ein Haustier mit" },
+const YES_NO_PETS: { value: boolean; label: Label }[] = [
+  { value: false, label: { de: "Kein Haustier", en: "No pet" } },
+  { value: true, label: { de: "Bringe ein Haustier mit", en: "Bringing a pet" } },
 ];
 
 /**
@@ -98,6 +104,8 @@ export function ProfileStep({
   onDone: () => void;
   onBack?: () => void;
 }) {
+  const t = useT();
+  const locale = useLocale();
   const [draft, setDraft] = useState<Applicant>(() =>
     me
       ? { ...emptyApplicant(uid), ...me, lifestyle: { ...emptyLifestyle, ...me.lifestyle } }
@@ -129,7 +137,11 @@ export function ProfileStep({
         uploadPhoto(`flats/${flatId}/applicants/${uid}/${randomId()}.webp`, file, SHAPES.applicant)
           .then((photo) => setDraft((d) => ({ ...d, photos: [...d.photos, photo].slice(0, MAX_PHOTOS) })))
           .catch((e) =>
-            setPhotoError(e instanceof PhotoError ? e.message : "Hochladen hat nicht geklappt. Versuch es nochmal."),
+            setPhotoError(
+              e instanceof PhotoError
+                ? t(e.message, e.en)
+                : t("Hochladen hat nicht geklappt. Versuch es nochmal.", "Upload did not work. Try again."),
+            ),
           )
           .finally(() => {
             setPending((p) => p.filter((x) => x.id !== id));
@@ -161,9 +173,10 @@ export function ProfileStep({
 
   const save = async () => {
     const problems: string[] = [];
-    if (!draft.firstName.trim()) problems.push("Sag uns deinen Vornamen.");
-    if (!draft.photos.length) problems.push("Lade mindestens ein Foto hoch.");
-    if (pending.length) problems.push("Warte kurz, bis alle Fotos hochgeladen sind.");
+    if (!draft.firstName.trim()) problems.push(t("Sag uns deinen Vornamen.", "Tell us your first name."));
+    if (!draft.photos.length) problems.push(t("Lade mindestens ein Foto hoch.", "Upload at least one photo."));
+    if (pending.length)
+      problems.push(t("Warte kurz, bis alle Fotos hochgeladen sind.", "Wait a moment until all photos are uploaded."));
     setErrors(problems);
     if (problems.length) return;
 
@@ -184,9 +197,15 @@ export function ProfileStep({
       savedPaths.forEach((path) => {
         if (!draft.photos.some((p) => p.path === path)) void deletePhoto(path);
       });
+      if (!returning) track("applicant_profile_done", { photos: draft.photos.length });
       onDone();
     } catch {
-      setErrors(["Speichern hat nicht geklappt. Prüf deine Verbindung und versuch es nochmal."]);
+      setErrors([
+        t(
+          "Speichern hat nicht geklappt. Prüf deine Verbindung und versuch es nochmal.",
+          "Saving did not work. Check your connection and try again.",
+        ),
+      ]);
       setBusy(false);
     }
   };
@@ -201,26 +220,34 @@ export function ProfileStep({
   return (
     <div className="flex min-h-dvh flex-col">
       <FlowHeader
-        title={returning ? "Profil bearbeiten" : flatTitle}
-        subtitle={returning ? undefined : "Schritt 3 von 4"}
+        title={returning ? t("Profil bearbeiten", "Edit profile") : flatTitle}
+        subtitle={returning ? undefined : t("Schritt 3 von 4", "Step 3 of 4")}
         onBack={onBack}
         step={returning ? undefined : 2}
+        flatId={flatId}
         right={
           <button type="button" className="btn btn-ghost" onClick={() => setPreview(true)}>
             <Eye size={15} strokeWidth={1.75} />
-            Vorschau
+            {t("Vorschau", "Preview")}
           </button>
         }
       />
       <Column className="flex-1 pt-5">
-        <h1 className="h3 text-ink">{returning ? "Dein Profil" : "Zeig dich den anderen"}</h1>
+        <h1 className="h3 text-ink">
+          {returning ? t("Dein Profil", "Your profile") : t("Zeig dich den anderen", "Introduce yourself")}
+        </h1>
         <p className="mt-2 text-ui-medium leading-relaxed text-muted">
-          So sehen dich die anderen Bewerber und der Vermieter. Kontaktdaten kommen erst im nächsten Schritt und
-          bleiben privat.
+          {t(
+            "So sehen dich die anderen Bewerber und der Vermieter. Kontaktdaten kommen erst im nächsten Schritt und bleiben privat.",
+            "This is how the other applicants and the landlord see you. Contact details come in the next step and stay private.",
+          )}
         </p>
 
         <div className="mt-5 grid gap-6 pb-2">
-          <Section title="Fotos" hint={`${draft.photos.length} von ${MAX_PHOTOS}`}>
+          <Section
+            title={t("Fotos", "Photos")}
+            hint={t(`${draft.photos.length} von ${MAX_PHOTOS}`, `${draft.photos.length} of ${MAX_PHOTOS}`)}
+          >
             <div className="grid grid-cols-3 gap-2">
               {slots.map((slot) => (
                 <div
@@ -234,21 +261,21 @@ export function ProfileStep({
                       <button
                         type="button"
                         onClick={() => removePhoto(slot.photo.path)}
-                        aria-label="Foto entfernen"
+                        aria-label={t("Foto entfernen", "Remove photo")}
                         className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white hover:bg-black"
                       >
                         <X size={13} strokeWidth={2} />
                       </button>
                       {slot.i === 0 ? (
                         <span className="absolute bottom-1.5 left-1.5 rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold text-white">
-                          Hauptfoto
+                          {t("Hauptfoto", "Main photo")}
                         </span>
                       ) : (
                         <button
                           type="button"
                           onClick={() => makeMain(slot.photo.path)}
-                          aria-label="Als Hauptfoto nehmen"
-                          title="Als Hauptfoto nehmen"
+                          aria-label={t("Als Hauptfoto nehmen", "Make main photo")}
+                          title={t("Als Hauptfoto nehmen", "Make main photo")}
                           className="absolute bottom-1.5 left-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white hover:bg-black"
                         >
                           <Star size={12} strokeWidth={2} />
@@ -268,11 +295,11 @@ export function ProfileStep({
                       type="button"
                       onClick={() => fileInput.current?.click()}
                       className="flex h-full w-full flex-col items-center justify-center gap-1 border-dashed text-faint transition-colors hover:bg-base-25 hover:text-muted"
-                      aria-label="Foto hinzufügen"
+                      aria-label={t("Foto hinzufügen", "Add photo")}
                     >
                       <ImagePlus size={20} strokeWidth={1.5} />
                       {slot.i === draft.photos.length + pending.length ? (
-                        <span className="text-ui-smaller">Hinzufügen</span>
+                        <span className="text-ui-smaller">{t("Hinzufügen", "Add")}</span>
                       ) : null}
                     </button>
                   )}
@@ -289,14 +316,17 @@ export function ProfileStep({
             />
             {photoError ? <p className="mt-2 text-ui-small text-red">{photoError}</p> : null}
             <p className="mt-2 text-ui-smaller text-faint">
-              Am besten ein klares Porträt als Hauptfoto, dazu gern Bilder von dem, was du gern machst.
+              {t(
+                "Am besten ein klares Porträt als Hauptfoto, dazu gern Bilder von dem, was du gern machst.",
+                "A clear portrait works best as your main photo, plus pictures of things you love doing.",
+              )}
             </p>
           </Section>
 
-          <Section title="Über dich">
+          <Section title={t("Über dich", "About you")}>
             <div className="grid gap-4">
               <div className="grid grid-cols-[1fr_96px] gap-3">
-                <Field label="Vorname">
+                <Field label={t("Vorname", "First name")}>
                   <input
                     className="input input-lg"
                     value={draft.firstName}
@@ -305,7 +335,7 @@ export function ProfileStep({
                     maxLength={40}
                   />
                 </Field>
-                <Field label="Alter">
+                <Field label={t("Alter", "Age")}>
                   <input
                     className="input input-lg"
                     type="number"
@@ -317,91 +347,100 @@ export function ProfileStep({
                   />
                 </Field>
               </div>
-              <Field label="Was machst du?">
+              <Field label={t("Was machst du?", "What do you do?")}>
                 <input
                   className="input input-lg"
                   value={draft.occupation}
                   onChange={(e) => set("occupation", e.target.value)}
-                  placeholder="Zum Beispiel Medizinstudium oder UX Designerin"
+                  placeholder={t("Zum Beispiel Medizinstudium oder UX Designerin", "For example medical student or UX designer")}
                   maxLength={80}
                 />
               </Field>
-              <Field label="Über mich" hint={`${draft.bio.length} von ${BIO_MAX} Zeichen`}>
+              <Field
+                label={t("Über mich", "About me")}
+                hint={t(`${draft.bio.length} von ${BIO_MAX} Zeichen`, `${draft.bio.length} of ${BIO_MAX} characters`)}
+              >
                 <textarea
                   className="input min-h-[120px] text-ui-medium"
                   value={draft.bio}
                   maxLength={BIO_MAX}
                   onChange={(e) => set("bio", e.target.value)}
-                  placeholder="Wie bist du so im Alltag, was ist dir in einer WG wichtig?"
+                  placeholder={t(
+                    "Wie bist du so im Alltag, was ist dir in einer WG wichtig?",
+                    "What are you like day to day, and what matters to you in a shared flat?",
+                  )}
                 />
               </Field>
             </div>
           </Section>
 
-          <Section title="Interessen" hint={`${draft.interests.length} von ${MAX_INTERESTS}`}>
+          <Section
+            title={t("Interessen", "Interests")}
+            hint={t(`${draft.interests.length} von ${MAX_INTERESTS}`, `${draft.interests.length} of ${MAX_INTERESTS}`)}
+          >
             <div className="flex flex-wrap gap-1.5">
-              {INTERESTS.map((t) => {
-                const on = draft.interests.includes(t);
+              {INTERESTS.map((v) => {
+                const on = draft.interests.includes(v);
                 return (
                   <button
-                    key={t}
+                    key={v}
                     type="button"
                     className="chip disabled:cursor-not-allowed disabled:opacity-40"
                     aria-pressed={on}
                     disabled={!on && draft.interests.length >= MAX_INTERESTS}
-                    onClick={() => toggleIn("interests", t, MAX_INTERESTS)}
+                    onClick={() => toggleIn("interests", v, MAX_INTERESTS)}
                   >
-                    {t}
+                    {interestLabel(v, locale)}
                   </button>
                 );
               })}
             </div>
           </Section>
 
-          <Section title="Sprachen">
+          <Section title={t("Sprachen", "Languages")}>
             <div className="flex flex-wrap gap-1.5">
-              {LANGUAGES.map((t) => (
+              {LANGUAGES.map((v) => (
                 <button
-                  key={t}
+                  key={v}
                   type="button"
                   className="chip"
-                  aria-pressed={draft.languages.includes(t)}
-                  onClick={() => toggleIn("languages", t)}
+                  aria-pressed={draft.languages.includes(v)}
+                  onClick={() => toggleIn("languages", v)}
                 >
-                  {t}
+                  {languageLabel(v, locale)}
                 </button>
               ))}
             </div>
           </Section>
 
-          <Section title="Wie du wohnst">
+          <Section title={t("Wie du wohnst", "How you live")}>
             <div className="grid gap-4">
               <div>
-                <p className="mb-2 text-ui-small text-muted">Sauberkeit</p>
+                <p className="mb-2 text-ui-small text-muted">{t("Sauberkeit", "Tidiness")}</p>
                 <ChipChoice options={CLEANLINESS} value={draft.lifestyle.cleanliness} onChange={(v) => setLife("cleanliness", v)} />
               </div>
               <div>
-                <p className="mb-2 text-ui-small text-muted">WG Leben</p>
+                <p className="mb-2 text-ui-small text-muted">{t("WG Leben", "Flat life")}</p>
                 <ChipChoice options={FLAT_LIFE} value={draft.lifestyle.flatLife} onChange={(v) => setLife("flatLife", v)} />
               </div>
               <div>
-                <p className="mb-2 text-ui-small text-muted">Rhythmus</p>
+                <p className="mb-2 text-ui-small text-muted">{t("Rhythmus", "Daily rhythm")}</p>
                 <ChipChoice options={RHYTHM} value={draft.lifestyle.rhythm} onChange={(v) => setLife("rhythm", v)} />
               </div>
               <div>
-                <p className="mb-2 text-ui-small text-muted">Rauchen</p>
+                <p className="mb-2 text-ui-small text-muted">{t("Rauchen", "Smoking")}</p>
                 <ChipChoice options={YES_NO_SMOKE} value={draft.lifestyle.smoker} onChange={(v) => setLife("smoker", v)} />
               </div>
               <div>
-                <p className="mb-2 text-ui-small text-muted">Haustier</p>
+                <p className="mb-2 text-ui-small text-muted">{t("Haustier", "Pets")}</p>
                 <ChipChoice options={YES_NO_PETS} value={draft.lifestyle.pets} onChange={(v) => setLife("pets", v)} />
               </div>
             </div>
           </Section>
 
-          <Section title="Einzug">
+          <Section title={t("Einzug", "Move in")}>
             <div className="grid gap-4">
-              <Field label="Einzug ab">
+              <Field label={t("Einzug ab", "Move in from")}>
                 <input
                   className="input input-lg"
                   type="date"
@@ -410,7 +449,9 @@ export function ProfileStep({
                 />
               </Field>
               <div>
-                <p className="mb-2 text-ui-small text-muted">Wie lange möchtest du bleiben?</p>
+                <p className="mb-2 text-ui-small text-muted">
+                  {t("Wie lange möchtest du bleiben?", "How long would you like to stay?")}
+                </p>
                 <ChipChoice options={STAY} value={draft.stay} onChange={(v) => set("stay", v)} />
               </div>
             </div>
@@ -430,7 +471,7 @@ export function ProfileStep({
         ) : null}
         <button type="button" className="btn btn-cta btn-lg w-full" onClick={save} disabled={busy}>
           {busy ? <Spinner size={14} /> : null}
-          {returning ? "Profil speichern" : "Profil speichern und weiter"}
+          {returning ? t("Profil speichern", "Save profile") : t("Profil speichern und weiter", "Save profile and continue")}
         </button>
       </BottomBar>
 
@@ -444,19 +485,19 @@ export function ProfileStep({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">
-              <p className="text-ui-small font-semibold text-ink">So sehen dich die anderen</p>
-              <button type="button" className="icon-btn" onClick={() => setPreview(false)} aria-label="Schließen">
+              <p className="text-ui-small font-semibold text-ink">{t("So sehen dich die anderen", "How the others see you")}</p>
+              <button type="button" className="icon-btn" onClick={() => setPreview(false)} aria-label={t("Schließen", "Close")}>
                 <X size={16} strokeWidth={1.75} />
               </button>
             </div>
-            <ProfileCard applicant={{ ...draft, firstName: draft.firstName || "Dein Name" }} />
+            <ProfileCard applicant={{ ...draft, firstName: draft.firstName || t("Dein Name", "Your name") }} />
             <div className="mt-4 grid gap-3">
               {draft.bio ? <p className="whitespace-pre-line text-ui-medium text-ink">{draft.bio}</p> : null}
               {draft.interests.length ? (
                 <div className="flex flex-wrap gap-1.5">
-                  {draft.interests.map((t) => (
-                    <span key={t} className="tag">
-                      #{t}
+                  {draft.interests.map((v) => (
+                    <span key={v} className="tag">
+                      #{interestLabel(v, locale)}
                     </span>
                   ))}
                 </div>

@@ -1,6 +1,9 @@
+"use client";
+
 import { BedDouble, CalendarDays, Ruler } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { useLocale, useT } from "@/lib/i18n/client";
 import { formatDate } from "@/lib/options";
 import { euro } from "@/lib/plans";
 import type { Room } from "@/lib/types";
@@ -17,7 +20,9 @@ export function RoomCard({
   footer?: ReactNode;
   compact?: boolean;
 }) {
-  const from = formatDate(room.availableFrom);
+  const t = useT();
+  const locale = useLocale();
+  const from = formatDate(room.availableFrom, locale);
   return (
     <div className="card overflow-hidden">
       <div className={`relative bg-base-25 ${compact ? "aspect-[16/9]" : "aspect-[4/3]"}`}>
@@ -36,8 +41,8 @@ export function RoomCard({
           <h3 className="truncate text-ui-medium font-semibold">{room.name}</h3>
           {room.rent ? (
             <span className="shrink-0 text-ui-medium font-semibold text-ink">
-              {euro(room.rent)}
-              <span className="text-ui-smaller font-normal text-faint"> warm</span>
+              {euro(room.rent, locale)}
+              <span className="text-ui-smaller font-normal text-faint">{t(" warm", " incl. bills")}</span>
             </span>
           ) : null}
         </div>
@@ -49,7 +54,7 @@ export function RoomCard({
           ) : null}
           {from ? (
             <span className="inline-flex items-center gap-1">
-              <CalendarDays size={12} strokeWidth={1.75} /> frei ab {from}
+              <CalendarDays size={12} strokeWidth={1.75} /> {t(`frei ab ${from}`, `available from ${from}`)}
             </span>
           ) : null}
         </div>

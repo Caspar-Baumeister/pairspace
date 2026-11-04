@@ -13,6 +13,8 @@ function resend(): Resend | null {
 
 export interface Mail {
   to: string;
+  /** Where a reply goes, for example the person who sent feedback. */
+  replyTo?: string;
   subject: string;
   heading: string;
   body: string[];
@@ -69,6 +71,7 @@ export async function send(mail: Mail): Promise<boolean> {
   const { data, error } = await api.emails.send({
     from: FROM,
     to: mail.to,
+    replyTo: mail.replyTo,
     subject: mail.subject,
     html: render(mail),
     text: [mail.heading, ...mail.body.map(stripTags), mail.cta?.url ?? ""].join("\n\n"),

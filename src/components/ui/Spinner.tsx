@@ -1,3 +1,7 @@
+"use client";
+
+import { useT } from "@/lib/i18n/client";
+
 export function Spinner({ size = 16 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" className="animate-spin text-faint" aria-hidden="true">
@@ -7,11 +11,12 @@ export function Spinner({ size = 16 }: { size?: number }) {
   );
 }
 
-export function FullScreenSpinner({ label = "Einen Moment" }: { label?: string }) {
+export function FullScreenSpinner({ label }: { label?: string }) {
+  const t = useT();
   return (
     <div className="flex min-h-dvh items-center justify-center gap-3 text-ui-small text-faint" role="status">
       <Spinner />
-      {label}
+      {label ?? t("Einen Moment", "One moment")}
     </div>
   );
 }

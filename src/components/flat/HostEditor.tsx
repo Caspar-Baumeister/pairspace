@@ -7,6 +7,7 @@ import { ErrorText, Field } from "@/components/ui/Field";
 import { Spinner } from "@/components/ui/Spinner";
 import { updateFlat, updateLandlord } from "@/lib/firebase/data";
 import { deletePhoto, PhotoError, randomId, SHAPES, uploadPhoto } from "@/lib/firebase/storage";
+import { useT } from "@/lib/i18n/client";
 import type { Flat, Landlord, Photo } from "@/lib/types";
 
 const MAX_ABOUT = 280;
@@ -15,7 +16,7 @@ const MAX_ABOUT = 280;
 export function HostEditor({
   landlord,
   flats,
-  submitLabel = "Speichern",
+  submitLabel,
   onSaved,
 }: {
   landlord: Landlord;
@@ -24,6 +25,7 @@ export function HostEditor({
   submitLabel?: string;
   onSaved?: () => void;
 }) {
+  const t = useT();
   const [name, setName] = useState(landlord.name);
   const [about, setAbout] = useState(landlord.about);
   const [photo, setPhoto] = useState<Photo | null>(landlord.photo);
@@ -41,7 +43,11 @@ export function HostEditor({
       await deletePhoto(photo?.path);
       setPhoto(next);
     } catch (e) {
-      setError(e instanceof PhotoError ? e.message : "Das Foto konnte nicht hochgeladen werden.");
+      setError(
+        e instanceof PhotoError
+          ? t(e.message, e.en)
+          : t("Das Foto konnte nicht hochgeladen werden.", "The photo couldn't be uploaded."),
+      );
     } finally {
       setUploading(false);
     }
@@ -66,7 +72,7 @@ export function HostEditor({
           onSaved?.();
         } catch (err) {
           console.error(err);
-          setError("Speichern hat nicht geklappt.");
+          setError(t("Speichern hat nicht geklappt.", "Saving didn't work."));
         } finally {
           setBusy(false);
         }
@@ -77,7 +83,7 @@ export function HostEditor({
           type="button"
           onClick={() => fileRef.current?.click()}
           className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-dashed border-base-40 bg-base-25 text-faint"
-          aria-label="Foto wählen"
+          aria-label={t("Foto wählen", "Choose a photo")}
         >
           {photo ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -103,10 +109,13 @@ export function HostEditor({
           }}
         />
         <div className="text-ui-small text-muted">
-          Ein Foto ist freiwillig, macht die Anfrage aber persönlicher.
+          {t(
+            "Ein Foto ist freiwillig, macht die Anfrage aber persönlicher.",
+            "A photo is optional, but it makes your invite feel more personal.",
+          )}
         </div>
       </div>
-      <Field label="Dein Name">
+      <Field label={t("Dein Name", "Your name")}>
         <input
           className="input input-lg"
           value={name}
@@ -118,7 +127,10 @@ export function HostEditor({
           required
         />
       </Field>
-      <Field label="Kurz über dich" hint={`${about.length} von ${MAX_ABOUT} Zeichen`}>
+      <Field
+        label={t("Kurz über dich", "A little about you")}
+        hint={t(`${about.length} von ${MAX_ABOUT} Zeichen`, `${about.length} of ${MAX_ABOUT} characters`)}
+      >
         <textarea
           className="input"
           rows={3}
@@ -127,16 +139,19 @@ export function HostEditor({
             setAbout(e.target.value.slice(0, MAX_ABOUT));
             setSaved(false);
           }}
-          placeholder="Zum Beispiel: Ich vermiete die Zimmer selbst und wohne in der Nähe."
+          placeholder={t(
+            "Zum Beispiel: Ich vermiete die Zimmer selbst und wohne in der Nähe.",
+            "For example: I rent out the rooms myself and live nearby.",
+          )}
         />
       </Field>
       <ErrorText>{error}</ErrorText>
       <div className="flex items-center gap-3">
         <button type="submit" className="btn btn-cta btn-lg" disabled={busy || uploading}>
           {busy ? <Spinner size={14} /> : null}
-          {submitLabel}
+          {submitLabel ?? t("Speichern", "Save")}
         </button>
-        {saved && !onSaved ? <span className="text-ui-small text-green">Gespeichert</span> : null}
+        {saved && !onSaved ? <span className="text-ui-small text-green">{t("Gespeichert", "Saved")}</span> : null}
       </div>
     </form>
   );

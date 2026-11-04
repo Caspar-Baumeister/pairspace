@@ -3,6 +3,7 @@
 import { Briefcase, UserRound } from "lucide-react";
 import { useState } from "react";
 
+import { useT } from "@/lib/i18n/client";
 import type { Applicant } from "@/lib/types";
 import { displayName } from "./ProfileDetails";
 
@@ -12,6 +13,7 @@ import { displayName } from "./ProfileDetails";
  * Give it a `key` per applicant so the photo index resets.
  */
 export function ProfileCard({ applicant, className = "" }: { applicant: Applicant; className?: string }) {
+  const t = useT();
   const photos = applicant.photos ?? [];
   const [index, setIndex] = useState(0);
   const current = photos[Math.min(index, Math.max(photos.length - 1, 0))];
@@ -46,13 +48,13 @@ export function ProfileCard({ applicant, className = "" }: { applicant: Applican
           </div>
           <button
             type="button"
-            aria-label="Vorheriges Foto"
+            aria-label={t("Vorheriges Foto", "Previous photo")}
             className="absolute inset-y-0 left-0 z-10 w-1/2 cursor-w-resize focus-visible:outline-none"
             onClick={() => setIndex((i) => Math.max(0, i - 1))}
           />
           <button
             type="button"
-            aria-label="Nächstes Foto"
+            aria-label={t("Nächstes Foto", "Next photo")}
             className="absolute inset-y-0 right-0 z-10 w-1/2 cursor-e-resize focus-visible:outline-none"
             onClick={() => setIndex((i) => Math.min(photos.length - 1, i + 1))}
           />
@@ -61,7 +63,7 @@ export function ProfileCard({ applicant, className = "" }: { applicant: Applican
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent px-4 pb-4 pt-20">
         <h2 className="text-[26px] font-bold leading-tight tracking-[-0.015em] text-white">
-          {displayName(applicant)}
+          {displayName(applicant, t)}
         </h2>
         {applicant.occupation ? (
           <p className="mt-1 flex items-center gap-1.5 text-ui-medium text-white/85">

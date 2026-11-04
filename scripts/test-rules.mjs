@@ -19,6 +19,19 @@ const patch = (path, fields, mask, uid, provider) =>
     body: JSON.stringify({ fields }),
   }).then((r) => r.status);
 
+const feedback = (uid) => ({
+  uid: { stringValue: uid },
+  kind: { stringValue: "bug" },
+  text: { stringValue: "Der Knopf hakt" },
+  email: { nullValue: null },
+  source: { stringValue: "applicant" },
+  flatId: { nullValue: null },
+  page: { stringValue: "/w/demo2wg8" },
+  locale: { stringValue: "de" },
+  userAgent: { stringValue: "test" },
+  createdAt: { integerValue: String(Date.now()) },
+});
+
 const landlordUid = (await (await fetch(`${BASE}/flats/demo2wg8`, { headers: { Authorization: "Bearer owner" } })).json()).fields.ownerUid.stringValue;
 const checks = [
   ["Fremder liest live Wohnung (ohne Login)", await get("flats/demo2wg8"), 200],
@@ -33,6 +46,10 @@ const checks = [
   ["Vermieter schreibt sich selbst ein Abo", await patch(`landlords/${landlordUid}`, { subscription: { mapValue: { fields: { status: { stringValue: "active" } } } } }, ["subscription"], landlordUid, "password"), 403],
   ["Bewerber schreibt Stimmzettel eines anderen", await patch("flats/demo2wg8/ballots/demo-lena", { uid: { stringValue: "demo-lena" }, votes: { mapValue: {} }, roomRanks: { mapValue: {} } }, ["uid", "votes", "roomRanks"], "anon1"), 403],
   ["Bewerber ändert die Wohnung", await patch("flats/demo2wg8", { title: { stringValue: "gehackt" } }, ["title"], "anon1"), 403],
+  ["Bewerber schickt Feedback", await patch(`feedback/rules-${Date.now()}`, feedback("anon1"), Object.keys(feedback("anon1")), "anon1"), 200],
+  ["Feedback im Namen eines anderen", await patch(`feedback/rules-x-${Date.now()}`, feedback("someone"), Object.keys(feedback("someone")), "anon1"), 403],
+  ["Feedback ohne Login", await fetch(`${BASE}/feedback/rules-anon`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ fields: feedback("anon1") }) }).then((r) => r.status), 403],
+  ["Jemand liest Feedback", await get("feedback/rules-read", "anon1"), 403],
 ];
 let ok = true;
 for (const [name, got, want] of checks) {

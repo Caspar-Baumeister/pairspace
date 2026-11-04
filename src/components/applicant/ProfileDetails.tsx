@@ -17,7 +17,9 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-import { CLEANLINESS, FLAT_LIFE, RHYTHM, STAY, formatDate, labelOf } from "@/lib/options";
+import { translator, type Locale, type T } from "@/lib/i18n";
+import { useLocale, useT } from "@/lib/i18n/client";
+import { CLEANLINESS, FLAT_LIFE, RHYTHM, STAY, formatDate, interestLabel, labelOf, languageLabel } from "@/lib/options";
 import type { Applicant } from "@/lib/types";
 
 export interface Fact {
@@ -26,28 +28,42 @@ export interface Fact {
 }
 
 /** Lifestyle, languages and timing as short lines with an icon. */
-export function profileFacts(a: Applicant): Fact[] {
+export function profileFacts(a: Applicant, locale: Locale): Fact[] {
+  const t = translator(locale);
   const out: Fact[] = [];
   const l = a.lifestyle;
-  if (l?.cleanliness) out.push({ icon: Sparkles, label: `Sauberkeit: ${labelOf(CLEANLINESS, l.cleanliness)}` });
-  if (l?.flatLife) out.push({ icon: Users, label: `WG Leben: ${labelOf(FLAT_LIFE, l.flatLife)}` });
+  if (l?.cleanliness)
+    out.push({
+      icon: Sparkles,
+      label: t(
+        `Sauberkeit: ${labelOf(CLEANLINESS, l.cleanliness, locale)}`,
+        `Tidiness: ${labelOf(CLEANLINESS, l.cleanliness, locale)}`,
+      ),
+    });
+  if (l?.flatLife)
+    out.push({
+      icon: Users,
+      label: t(`WG Leben: ${labelOf(FLAT_LIFE, l.flatLife, locale)}`, `Flat life: ${labelOf(FLAT_LIFE, l.flatLife, locale)}`),
+    });
   if (l?.rhythm) {
     const icon = l.rhythm === "night" ? Moon : l.rhythm === "early" ? Sunrise : Sun;
-    out.push({ icon, label: labelOf(RHYTHM, l.rhythm) ?? "" });
+    out.push({ icon, label: labelOf(RHYTHM, l.rhythm, locale) ?? "" });
   }
   if (l && l.smoker !== null && l.smoker !== undefined)
-    out.push({ icon: Cigarette, label: l.smoker ? "Raucht" : "Raucht nicht" });
+    out.push({ icon: Cigarette, label: l.smoker ? t("Raucht", "Smokes") : t("Raucht nicht", "Does not smoke") });
   if (l && l.pets !== null && l.pets !== undefined)
-    out.push({ icon: PawPrint, label: l.pets ? "Bringt ein Haustier mit" : "Kein Haustier" });
-  if (a.languages?.length) out.push({ icon: Languages, label: a.languages.join(", ") });
-  const from = formatDate(a.moveIn);
-  if (from) out.push({ icon: CalendarDays, label: `Einzug ab ${from}` });
-  if (a.stay) out.push({ icon: Clock, label: labelOf(STAY, a.stay) ?? "" });
+    out.push({ icon: PawPrint, label: l.pets ? t("Bringt ein Haustier mit", "Brings a pet") : t("Kein Haustier", "No pet") });
+  if (a.languages?.length)
+    out.push({ icon: Languages, label: a.languages.map((v) => languageLabel(v, locale)).join(", ") });
+  const from = formatDate(a.moveIn, locale);
+  if (from) out.push({ icon: CalendarDays, label: t(`Einzug ab ${from}`, `Moves in from ${from}`) });
+  if (a.stay) out.push({ icon: Clock, label: labelOf(STAY, a.stay, locale) ?? "" });
   return out;
 }
 
 export function ProfileFacts({ applicant }: { applicant: Applicant }) {
-  const facts = profileFacts(applicant);
+  const locale = useLocale();
+  const facts = profileFacts(applicant, locale);
   if (!facts.length) return null;
   return (
     <ul className="grid gap-1.5">
@@ -61,8 +77,9 @@ export function ProfileFacts({ applicant }: { applicant: Applicant }) {
   );
 }
 
-export function displayName(a: Pick<Applicant, "firstName" | "age">): string {
-  const name = a.firstName || "Ohne Namen";
+/** Pass t for the fallback in the page language, German without it. */
+export function displayName(a: Pick<Applicant, "firstName" | "age">, t: T = translator("de")): string {
+  const name = a.firstName || t("Ohne Namen", "No name");
   return a.age ? `${name}, ${a.age}` : name;
 }
 
@@ -71,6 +88,8 @@ export function displayName(a: Pick<Applicant, "firstName" | "age">): string {
  * shrinks the photo for tighter spots.
  */
 export function ProfileDetails({ applicant, compact = false }: { applicant: Applicant; compact?: boolean }) {
+  const t = useT();
+  const locale = useLocale();
   const photos = applicant.photos ?? [];
   const [active, setActive] = useState(0);
   const current = photos[Math.min(active, photos.length - 1)];
@@ -97,7 +116,7 @@ export function ProfileDetails({ applicant, compact = false }: { applicant: Appl
                 key={p.path}
                 type="button"
                 onClick={() => setActive(i)}
-                aria-label={`Foto ${i + 1}`}
+                aria-label={t(`Foto ${i + 1}`, `Photo ${i + 1}`)}
                 className={`h-12 w-12 shrink-0 overflow-hidden rounded-lg border ${
                   i === active ? "border-accent" : "border-transparent opacity-60 hover:opacity-100"
                 }`}
@@ -111,7 +130,7 @@ export function ProfileDetails({ applicant, compact = false }: { applicant: Appl
       </div>
 
       <div>
-        <h3 className="h4 text-ink">{displayName(applicant)}</h3>
+        <h3 className="h4 text-ink">{displayName(applicant, t)}</h3>
         {applicant.occupation ? (
           <p className="mt-0.5 flex items-center gap-1.5 text-ui-small text-muted">
             <Briefcase size={13} strokeWidth={1.75} className="text-faint" />
@@ -126,9 +145,9 @@ export function ProfileDetails({ applicant, compact = false }: { applicant: Appl
 
       {applicant.interests?.length ? (
         <div className="flex flex-wrap gap-1.5">
-          {applicant.interests.map((t) => (
-            <span key={t} className="tag">
-              #{t}
+          {applicant.interests.map((interest) => (
+            <span key={interest} className="tag">
+              #{interestLabel(interest, locale)}
             </span>
           ))}
         </div>

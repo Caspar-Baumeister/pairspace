@@ -5,8 +5,10 @@ import { useRef, useState } from "react";
 
 import { ErrorText } from "@/components/ui/Field";
 import { Spinner } from "@/components/ui/Spinner";
+import { track } from "@/lib/analytics";
 import { newRoom, updateFlat } from "@/lib/firebase/data";
 import { deletePhoto, PhotoError, randomId, SHAPES, uploadPhoto } from "@/lib/firebase/storage";
+import { useT } from "@/lib/i18n/client";
 import { MAX_ROOMS } from "@/lib/plans";
 import type { Flat, Room } from "@/lib/types";
 
@@ -16,14 +18,23 @@ import type { Flat, Room } from "@/lib/types";
  */
 export function RoomsEditor({
   flat,
-  submitLabel = "Speichern",
+  submitLabel,
   onSaved,
 }: {
   flat: Flat;
   submitLabel?: string;
   onSaved?: () => void;
 }) {
-  const [rooms, setRooms] = useState<Room[]>(flat.rooms.length ? flat.rooms : [newRoom(0)]);
+  const t = useT();
+  const defaultName = (index: number) => t(`Zimmer ${index + 1}`, `Room ${index + 1}`);
+  // New rooms get their name in the landlord's language. The untouched German
+  // defaults a new flat starts with are renamed the same way.
+  const fresh = (index: number): Room => ({ ...newRoom(index), name: defaultName(index) });
+  const [rooms, setRooms] = useState<Room[]>(() =>
+    flat.rooms.length
+      ? flat.rooms.map((r, i) => (r.name === `Zimmer ${i + 1}` ? { ...r, name: defaultName(i) } : r))
+      : [fresh(0)],
+  );
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
   const [error, setError] = useState("");
@@ -32,7 +43,7 @@ export function RoomsEditor({
   const setCount = (count: number) => {
     const n = Math.min(MAX_ROOMS, Math.max(1, count));
     setRooms((list) => {
-      if (n > list.length) return [...list, ...Array.from({ length: n - list.length }, (_, i) => newRoom(list.length + i))];
+      if (n > list.length) return [...list, ...Array.from({ length: n - list.length }, (_, i) => fresh(list.length + i))];
       return list.slice(0, n);
     });
     setSaved(false);
@@ -55,7 +66,11 @@ export function RoomsEditor({
       await deletePhoto(room.photo?.path);
       patch(room.id, { photo });
     } catch (e) {
-      setError(e instanceof PhotoError ? e.message : "Das Foto konnte nicht hochgeladen werden.");
+      setError(
+        e instanceof PhotoError
+          ? t(e.message, e.en)
+          : t("Das Foto konnte nicht hochgeladen werden.", "The photo couldn't be uploaded."),
+      );
     } finally {
       setUploading((u) => ({ ...u, [room.id]: false }));
     }
@@ -66,13 +81,14 @@ export function RoomsEditor({
     setError("");
     try {
       await updateFlat(flat.id, {
-        rooms: rooms.map((r, i) => ({ ...r, name: r.name.trim() || `Zimmer ${i + 1}`, note: r.note.trim() })),
+        rooms: rooms.map((r, i) => ({ ...r, name: r.name.trim() || defaultName(i), note: r.note.trim() })),
       });
+      track("rooms_saved", { rooms: rooms.length });
       setSaved(true);
       onSaved?.();
     } catch (e) {
       console.error(e);
-      setError("Speichern hat nicht geklappt.");
+      setError(t("Speichern hat nicht geklappt.", "Saving didn't work."));
     } finally {
       setBusy(false);
     }
@@ -82,14 +98,24 @@ export function RoomsEditor({
     <div>
       <div className="setting">
         <div className="min-w-0 flex-1">
-          <div className="setting-name">Anzahl Zimmer</div>
+          <div className="setting-name">{t("Anzahl Zimmer", "Number of rooms")}</div>
         </div>
         <div className="flex items-center gap-1">
-          <button type="button" className="btn h-8 w-8 px-0" onClick={() => setCount(rooms.length - 1)} aria-label="Ein Zimmer weniger">
+          <button
+            type="button"
+            className="btn h-8 w-8 px-0"
+            onClick={() => setCount(rooms.length - 1)}
+            aria-label={t("Ein Zimmer weniger", "One room fewer")}
+          >
             <Minus size={14} strokeWidth={1.75} />
           </button>
           <span className="w-8 text-center text-ui-medium font-semibold tabular-nums">{rooms.length}</span>
-          <button type="button" className="btn h-8 w-8 px-0" onClick={() => setCount(rooms.length + 1)} aria-label="Ein Zimmer mehr">
+          <button
+            type="button"
+            className="btn h-8 w-8 px-0"
+            onClick={() => setCount(rooms.length + 1)}
+            aria-label={t("Ein Zimmer mehr", "One more room")}
+          >
             <Plus size={14} strokeWidth={1.75} />
           </button>
         </div>
@@ -124,9 +150,9 @@ export function RoomsEditor({
           onClick={save}
         >
           {busy ? <Spinner size={14} /> : null}
-          {submitLabel}
+          {submitLabel ?? t("Speichern", "Save")}
         </button>
-        {saved && !onSaved ? <span className="text-ui-small text-green">Gespeichert</span> : null}
+        {saved && !onSaved ? <span className="text-ui-small text-green">{t("Gespeichert", "Saved")}</span> : null}
       </div>
       <div className="mt-2">
         <ErrorText>{error}</ErrorText>
@@ -150,6 +176,7 @@ function RoomRow({
   onUpload: (file: File) => void;
   onRemove?: () => void;
 }) {
+  const t = useT();
   const fileRef = useRef<HTMLInputElement>(null);
   const num = (v: string) => (v === "" ? null : Math.max(0, Number(v)));
 
@@ -159,7 +186,7 @@ function RoomRow({
         type="button"
         onClick={() => fileRef.current?.click()}
         className="group relative aspect-[4/3] w-full shrink-0 overflow-hidden rounded-lg border border-dashed border-base-40 bg-base-25 sm:w-[168px]"
-        aria-label={`Foto für ${room.name} wählen`}
+        aria-label={t(`Foto für ${room.name} wählen`, `Choose a photo for ${room.name}`)}
       >
         {room.photo ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -167,12 +194,12 @@ function RoomRow({
         ) : (
           <span className="flex h-full flex-col items-center justify-center gap-1 text-ui-smaller text-faint">
             <ImagePlus size={20} strokeWidth={1.5} />
-            Foto hinzufügen
+            {t("Foto hinzufügen", "Add a photo")}
           </span>
         )}
         {room.photo ? (
           <span className="absolute inset-x-0 bottom-0 bg-black/55 py-1 text-center text-[11px] text-white opacity-0 transition group-hover:opacity-100">
-            Foto ändern
+            {t("Foto ändern", "Change photo")}
           </span>
         ) : null}
         {uploading ? (
@@ -202,18 +229,18 @@ function RoomRow({
               className="input font-medium"
               value={room.name}
               onChange={(e) => onPatch({ name: e.target.value })}
-              placeholder={`Zimmer ${index + 1}`}
+              placeholder={t(`Zimmer ${index + 1}`, `Room ${index + 1}`)}
               maxLength={60}
             />
             {onRemove ? (
-              <button type="button" className="icon-btn shrink-0" onClick={onRemove} aria-label="Zimmer entfernen">
+              <button type="button" className="icon-btn shrink-0" onClick={onRemove} aria-label={t("Zimmer entfernen", "Remove room")}>
                 <Trash2 size={14} strokeWidth={1.75} />
               </button>
             ) : null}
           </div>
         </label>
         <label className="sm:col-span-2">
-          <span className="mb-1 block text-ui-smaller text-faint">Miete warm, €</span>
+          <span className="mb-1 block text-ui-smaller text-faint">{t("Miete warm, €", "Rent incl. bills, €")}</span>
           <input
             className="input"
             type="number"
@@ -224,7 +251,7 @@ function RoomRow({
           />
         </label>
         <label className="sm:col-span-2">
-          <span className="mb-1 block text-ui-smaller text-faint">Größe, m²</span>
+          <span className="mb-1 block text-ui-smaller text-faint">{t("Größe, m²", "Size, m²")}</span>
           <input
             className="input"
             type="number"
@@ -235,7 +262,7 @@ function RoomRow({
           />
         </label>
         <label className="col-span-2 sm:col-span-2">
-          <span className="mb-1 block text-ui-smaller text-faint">Frei ab</span>
+          <span className="mb-1 block text-ui-smaller text-faint">{t("Frei ab", "Available from")}</span>
           <input
             className="input"
             type="date"
@@ -244,12 +271,12 @@ function RoomRow({
           />
         </label>
         <label className="col-span-2 sm:col-span-6">
-          <span className="sr-only">Notiz</span>
+          <span className="sr-only">{t("Notiz", "Note")}</span>
           <input
             className="input"
             value={room.note}
             onChange={(e) => onPatch({ note: e.target.value })}
-            placeholder="Notiz, zum Beispiel Balkon oder Hochbett"
+            placeholder={t("Notiz, zum Beispiel Balkon oder Hochbett", "Note, for example balcony or loft bed")}
             maxLength={160}
           />
         </label>

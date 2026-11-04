@@ -24,6 +24,7 @@ import {
   type ReactNode,
 } from "react";
 
+import type { T } from "@/lib/i18n";
 import { firebase, firebaseConfigured } from "./client";
 
 interface AuthState {
@@ -90,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const linkGoogle = useCallback(async () => {
     const { auth } = firebase();
-    if (!auth.currentUser) throw new Error("Nicht angemeldet");
+    if (!auth.currentUser) throw new Error("Not signed in");
     const res = await linkWithPopup(auth.currentUser, googleProvider());
     setUser(res.user);
     setVersion((v) => v + 1);
@@ -99,7 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const linkEmail = useCallback(async (email: string, password: string) => {
     const { auth } = firebase();
-    if (!auth.currentUser) throw new Error("Nicht angemeldet");
+    if (!auth.currentUser) throw new Error("Not signed in");
     const res = await linkWithCredential(auth.currentUser, EmailAuthProvider.credential(email, password));
     setUser(res.user);
     setVersion((v) => v + 1);
@@ -138,25 +139,25 @@ export function useAuth(): AuthState {
   return ctx;
 }
 
-/** Readable German message for the common Firebase auth errors. */
-export function authErrorMessage(e: unknown): string {
+/** Readable message for the common Firebase auth errors, empty when the person just closed the popup. */
+export function authErrorMessage(e: unknown, t: T): string {
   const code = (e as { code?: string }).code ?? "";
   switch (code) {
     case "auth/invalid-credential":
     case "auth/wrong-password":
     case "auth/user-not-found":
-      return "Mail oder Passwort stimmen nicht.";
+      return t("Mail oder Passwort stimmen nicht.", "Email or password is wrong.");
     case "auth/email-already-in-use":
     case "auth/credential-already-in-use":
-      return "Zu dieser Mail gibt es schon ein Konto.";
+      return t("Zu dieser Mail gibt es schon ein Konto.", "There is already an account for this email.");
     case "auth/weak-password":
-      return "Das Passwort braucht mindestens 6 Zeichen.";
+      return t("Das Passwort braucht mindestens 6 Zeichen.", "The password needs at least 6 characters.");
     case "auth/invalid-email":
-      return "Diese Mail sieht nicht richtig aus.";
+      return t("Diese Mail sieht nicht richtig aus.", "This email does not look right.");
     case "auth/popup-closed-by-user":
     case "auth/cancelled-popup-request":
       return "";
     default:
-      return "Das hat nicht geklappt. Bitte versuch es nochmal.";
+      return t("Das hat nicht geklappt. Bitte versuch es nochmal.", "That did not work. Please try again.");
   }
 }

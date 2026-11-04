@@ -1,3 +1,4 @@
+import { intlLocale, type Locale } from "./i18n";
 import type { Subscription } from "./types";
 
 export const BASIC = {
@@ -11,8 +12,8 @@ export const BASIC = {
 /** Technical ceiling per flat, never shown. Keeps the flat document small. */
 export const MAX_ROOMS = 100;
 
-export function euro(value: number): string {
-  return value.toLocaleString("de-DE", {
+export function euro(value: number, locale: Locale = "de"): string {
+  return value.toLocaleString(intlLocale(locale), {
     style: "currency",
     currency: "EUR",
     minimumFractionDigits: Number.isInteger(value) ? 0 : 2,

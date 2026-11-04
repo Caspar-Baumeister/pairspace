@@ -9,7 +9,7 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: "*",
         allow: "/",
         // Flat links and the dashboard hold applicant data and must never be indexed.
-        disallow: ["/w/", "/app", "/anmelden", "/api/"],
+        disallow: ["/w/", "/app", "/anmelden", "/en/w/", "/en/app", "/en/anmelden", "/api/", "/ingest/"],
       },
     ],
     sitemap: `${site}/sitemap.xml`,

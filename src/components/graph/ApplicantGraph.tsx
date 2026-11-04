@@ -14,6 +14,8 @@ import {
 import { Maximize2, Minus, Plus } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { useT } from "@/lib/i18n/client";
+
 /**
  * Force directed graph in the style of Obsidian's graph view, drawn on canvas.
  *
@@ -79,6 +81,7 @@ export function ApplicantGraph({
   linkForce,
   onSelect,
 }: Props) {
+  const t = useT();
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const simRef = useRef<Simulation<SimNode, SimLink> | null>(null);
@@ -512,14 +515,17 @@ export function ApplicantGraph({
             requestDraw();
           }
         }}
-        aria-label="Graph der Bewerber. Nähe und Linien zeigen, wer sich gegenseitig mag."
+        aria-label={t(
+          "Graph der Bewerber. Nähe und Linien zeigen, wer sich gegenseitig mag.",
+          "Applicant graph. Closeness and lines show who likes each other.",
+        )}
         role="img"
       />
       <div className="absolute bottom-3 left-3 flex flex-col overflow-hidden rounded-lg border border-line bg-bg-2/90 backdrop-blur">
-        <button type="button" className="icon-btn rounded-none" onClick={() => zoomBy(1.25)} aria-label="Hineinzoomen">
+        <button type="button" className="icon-btn rounded-none" onClick={() => zoomBy(1.25)} aria-label={t("Hineinzoomen", "Zoom in")}>
           <Plus size={15} strokeWidth={1.75} />
         </button>
-        <button type="button" className="icon-btn rounded-none" onClick={() => zoomBy(0.8)} aria-label="Herauszoomen">
+        <button type="button" className="icon-btn rounded-none" onClick={() => zoomBy(0.8)} aria-label={t("Herauszoomen", "Zoom out")}>
           <Minus size={15} strokeWidth={1.75} />
         </button>
         <button
@@ -529,7 +535,7 @@ export function ApplicantGraph({
             userMoved.current = false;
             fit();
           }}
-          aria-label="Alles zeigen"
+          aria-label={t("Alles zeigen", "Show everyone")}
         >
           <Maximize2 size={13} strokeWidth={1.75} />
         </button>

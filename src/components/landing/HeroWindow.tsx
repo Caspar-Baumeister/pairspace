@@ -3,6 +3,9 @@
 import { BedDouble, ChevronDown, FolderClosed, Link2, Search, Settings, Waypoints } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { intlLocale } from "@/lib/i18n";
+import { useLocale, useT } from "@/lib/i18n/client";
+
 import {
   CAMP_COLOR,
   COLOR_AT,
@@ -93,6 +96,9 @@ const NEIGHBORS = (() => {
  * one by one like in the promo video, then the best group lights up.
  */
 export function HeroWindow() {
+  const t = useT();
+  const locale = useLocale();
+  const num = (n: number) => n.toLocaleString(intlLocale(locale));
   const frame = usePlayback(700);
   const spawned = PEOPLE.filter((_, i) => SPAWN_FRAME[i] <= frame).length;
   const ratings = Math.round(spawned * Math.max(0, spawned - 1) * 0.54);
@@ -110,8 +116,8 @@ export function HeroWindow() {
         <div className="ml-2 flex h-full items-end">
           <div className="flex h-8 items-center gap-2 rounded-t-md border border-b-0 border-line bg-bg px-3 text-ui-small text-ink">
             <Waypoints size={14} strokeWidth={1.75} className="text-muted" />
-            Bewerber
-            <span className="hidden text-faint sm:inline">· 3er WG Weserstraße</span>
+            {t("Bewerber", "Applicants")}
+            <span className="hidden text-faint sm:inline">· {t("3er WG Weserstraße", "Flatshare for 3, Weserstraße")}</span>
           </div>
         </div>
       </div>
@@ -128,16 +134,16 @@ export function HeroWindow() {
 
         {/* Sidebar: more than one flat, all in one account */}
         <div className="hidden w-[220px] shrink-0 border-r border-line bg-bg-2 px-2 py-3 text-ui-small md:block">
-          <div className="ui-label px-2 pb-2">Wohnungen</div>
+          <div className="ui-label px-2 pb-2">{t("Wohnungen", "Flats")}</div>
           <div className="flex items-center gap-1.5 rounded px-2 py-1 text-ink">
             <ChevronDown size={14} strokeWidth={1.75} className="text-faint" />
-            3er WG Weserstraße
+            {t("3er WG Weserstraße", "Flatshare for 3, Weserstraße")}
           </div>
           {[
-            { icon: Waypoints, label: "Bewerber", active: true },
-            { icon: BedDouble, label: "Zimmer" },
-            { icon: Link2, label: "Einladungslink" },
-            { icon: Settings, label: "Einstellungen" },
+            { icon: Waypoints, label: t("Bewerber", "Applicants"), active: true },
+            { icon: BedDouble, label: t("Zimmer", "Rooms") },
+            { icon: Link2, label: t("Einladungslink", "Invite link") },
+            { icon: Settings, label: t("Einstellungen", "Settings") },
           ].map(({ icon: Icon, label, active }) => (
             <div
               key={label}
@@ -147,10 +153,14 @@ export function HeroWindow() {
               {label}
             </div>
           ))}
-          {["4er WG Sonnenallee", "2er WG Graefekiez", "5er WG Schillerkiez"].map((t) => (
-            <div key={t} className="mt-0.5 flex items-center gap-1.5 rounded px-2 py-1 text-muted">
-              <FolderClosed size={14} strokeWidth={1.75} className="text-faint" />
-              {t}
+          {[
+            t("4er WG Sonnenallee", "Flatshare for 4, Sonnenallee"),
+            t("2er WG Graefekiez", "Flatshare for 2, Graefekiez"),
+            t("5er WG Schillerkiez", "Flatshare for 5, Schillerkiez"),
+          ].map((name) => (
+            <div key={name} className="mt-0.5 flex items-center gap-1.5 truncate rounded px-2 py-1 text-muted">
+              <FolderClosed size={14} strokeWidth={1.75} className="shrink-0 text-faint" />
+              <span className="truncate">{name}</span>
             </div>
           ))}
         </div>
@@ -159,7 +169,10 @@ export function HeroWindow() {
         <div className="relative min-w-0 flex-1">
           <Graph frame={frame} match={match} />
           <div className="pointer-events-none absolute bottom-2 right-3 text-ui-smaller tabular-nums text-faint">
-            {spawned} Bewerber · 3 Zimmer · {ratings.toLocaleString("de-DE")} Bewertungen
+            {t(
+              `${spawned} Bewerber · 3 Zimmer · ${num(ratings)} Bewertungen`,
+              `${spawned} applicants · 3 rooms · ${num(ratings)} ratings`,
+            )}
           </div>
           {/* On small screens the best group floats over the graph */}
           <div
@@ -173,24 +186,29 @@ export function HeroWindow() {
         {/* Best groups */}
         <div className="hidden w-[300px] shrink-0 border-l border-line bg-bg-2 lg:flex lg:flex-col">
           <div className="flex gap-1 border-b border-line p-2 text-ui-small">
-            <span className="rounded bg-[var(--hover)] px-2 py-1 text-ink">Beste Gruppen</span>
-            <span className="px-2 py-1 text-faint">Alle</span>
-            <span className="px-2 py-1 text-faint">Person</span>
+            <span className="rounded bg-[var(--hover)] px-2 py-1 text-ink">{t("Beste Gruppen", "Best groups")}</span>
+            <span className="px-2 py-1 text-faint">{t("Alle", "All")}</span>
+            <span className="px-2 py-1 text-faint">{t("Person", "Person")}</span>
           </div>
           <div className="flex-1 overflow-hidden p-3">
-            <div className="text-ui-medium font-semibold text-ink">Beste 3er Gruppen</div>
+            <div className="text-ui-medium font-semibold text-ink">{t("Beste 3er Gruppen", "Best groups of 3")}</div>
             {frame < MATCH_AT ? (
               <div className="mt-4 space-y-3 text-ui-small">
-                <Stat label="Bewerber" value={String(spawned)} />
-                <Stat label="Bewertungen" value={ratings.toLocaleString("de-DE")} />
-                <p className="pt-1 text-faint">Bewertungen laufen ein, die Gruppen rechnen sich laufend neu.</p>
+                <Stat label={t("Bewerber", "Applicants")} value={String(spawned)} />
+                <Stat label={t("Bewertungen", "Ratings")} value={num(ratings)} />
+                <p className="pt-1 text-faint">
+                  {t(
+                    "Bewertungen laufen ein, die Gruppen rechnen sich laufend neu.",
+                    "Ratings keep coming in and the groups update as they do.",
+                  )}
+                </p>
               </div>
             ) : (
               <div className="mt-3 space-y-2">
                 {GROUPS.map((g, k) => {
-                  const t = easeOut(clamp01((frame - MATCH_AT - k * 6) / 14));
+                  const shown = easeOut(clamp01((frame - MATCH_AT - k * 6) / 14));
                   return (
-                    <div key={k} style={{ opacity: t, transform: `translateY(${(1 - t) * 14}px)` }}>
+                    <div key={k} style={{ opacity: shown, transform: `translateY(${(1 - shown) * 14}px)` }}>
                       <GroupCard rank={k + 1} group={g} selected={k === 0} />
                     </div>
                   );
@@ -216,6 +234,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 /* ----------------------------------------------------------------- graph */
 
 function Graph({ frame, match }: { frame: number; match: number }) {
+  const tr = useT();
   const { xs, ys } = useMemo(() => layout(), []);
   const box = useMemo(() => finalBox(xs, ys), [xs, ys]);
   const [hover, setHover] = useState<number | null>(null);
@@ -238,7 +257,10 @@ function Graph({ frame, match }: { frame: number; match: number }) {
       preserveAspectRatio="xMidYMid meet"
       className="absolute inset-0 h-full w-full"
       role="img"
-      aria-label="Graph mit 48 Bewerbern in vier Gruppen, die beste Dreiergruppe ist hervorgehoben"
+      aria-label={tr(
+        "Graph mit 48 Bewerbern in vier Gruppen, die beste Dreiergruppe ist hervorgehoben",
+        "Graph of 48 applicants in four clusters, the best group of three is highlighted",
+      )}
     >
       <defs>
         {PEOPLE.map((p, i) =>
@@ -342,10 +364,11 @@ function GroupCard({
   selected?: boolean;
   compact?: boolean;
 }) {
+  const t = useT();
   const meters: [string, number, string][] = [
-    ["Harmonie", rank === 1 ? 92 : rank === 2 ? 86 : 82, ""],
-    ["Zimmer", rank === 3 ? 83 : 100, ""],
-    ["Bewertet", rank === 3 ? 83 : 100, rank === 3 ? "5 von 6" : "6 von 6"],
+    [t("Harmonie", "Harmony"), rank === 1 ? 92 : rank === 2 ? 86 : 82, ""],
+    [t("Zimmer", "Rooms"), rank === 3 ? 83 : 100, ""],
+    [t("Bewertet", "Rated"), rank === 3 ? 83 : 100, rank === 3 ? t("5 von 6", "5 of 6") : t("6 von 6", "6 of 6")],
   ];
   return (
     <div className={`card p-3 ${selected ? "border-accent-line bg-[#2b2540]" : ""}`}>
@@ -368,7 +391,7 @@ function GroupCard({
         <div className="flex-1" />
         <div className="text-right">
           <div className="text-[20px] font-bold leading-none tabular-nums text-ink">{group.score}</div>
-          <div className="text-[9px] uppercase tracking-wide text-faint">Punkte</div>
+          <div className="text-[9px] uppercase tracking-wide text-faint">{t("Punkte", "Points")}</div>
         </div>
       </div>
       <div className="mt-1.5 truncate text-ui-small text-muted">

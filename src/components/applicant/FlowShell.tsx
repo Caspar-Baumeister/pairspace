@@ -3,9 +3,17 @@
 import { ChevronLeft } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { FeedbackButton } from "@/components/feedback/Feedback";
 import { LogoMark } from "@/components/ui/Logo";
+import { useT } from "@/lib/i18n/client";
+import type { Label } from "@/lib/options";
 
-export const FLOW_STEPS = ["Einschätzen", "Zimmer", "Profil", "Kontakt"] as const;
+export const FLOW_STEPS: readonly Label[] = [
+  { de: "Einschätzen", en: "Rate" },
+  { de: "Zimmer", en: "Rooms" },
+  { de: "Profil", en: "Profile" },
+  { de: "Kontakt", en: "Contact" },
+];
 
 /** Sticky top bar with back button, title and the four step segments. */
 export function FlowHeader({
@@ -15,6 +23,7 @@ export function FlowHeader({
   step,
   steps = FLOW_STEPS.length,
   right,
+  flatId,
 }: {
   title: string;
   subtitle?: string;
@@ -23,12 +32,15 @@ export function FlowHeader({
   step?: number;
   steps?: number;
   right?: ReactNode;
+  /** Goes along with feedback, so it is clear which flat it is about. */
+  flatId?: string;
 }) {
+  const t = useT();
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-bg/90 backdrop-blur-md">
       <div className="mx-auto flex h-12 w-full max-w-[440px] items-center gap-2 px-3">
         {onBack ? (
-          <button type="button" className="icon-btn" onClick={onBack} aria-label="Zurück">
+          <button type="button" className="icon-btn" onClick={onBack} aria-label={t("Zurück", "Back")}>
             <ChevronLeft size={18} strokeWidth={1.75} />
           </button>
         ) : (
@@ -40,6 +52,7 @@ export function FlowHeader({
           <p className="truncate text-ui-small font-semibold text-ink">{title}</p>
           {subtitle ? <p className="truncate text-ui-smaller text-faint">{subtitle}</p> : null}
         </div>
+        <FeedbackButton source="applicant" flatId={flatId} />
         {right}
       </div>
       {step !== undefined ? (

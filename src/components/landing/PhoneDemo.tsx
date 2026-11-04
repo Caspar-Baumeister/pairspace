@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 
 import { ProfileCard } from "@/components/applicant/ProfileCard";
 import { VoteButtons } from "@/components/applicant/VoteButtons";
+import type { Locale } from "@/lib/i18n";
+import { useLocale, useT } from "@/lib/i18n/client";
 import type { Applicant, Vote } from "@/lib/types";
 
 const demo = (uid: string, firstName: string, age: number, occupation: string): Applicant => ({
@@ -23,11 +25,11 @@ const demo = (uid: string, firstName: string, age: number, occupation: string): 
   updatedAt: 0,
 });
 
-const DECK: { applicant: Applicant; vote: Vote }[] = [
-  { applicant: demo("lena", "Lena", 23, "Medizinstudium"), vote: 2 },
-  { applicant: demo("jonas", "Jonas", 24, "Maschinenbau Master"), vote: 1 },
-  { applicant: demo("sophie", "Sophie", 23, "Psychologie"), vote: 2 },
-  { applicant: demo("noah", "Noah", 27, "Musiker und Barista"), vote: 0 },
+const DECK: { applicant: Record<Locale, Applicant>; vote: Vote }[] = [
+  { applicant: { de: demo("lena", "Lena", 23, "Medizinstudium"), en: demo("lena", "Lena", 23, "Medicine student") }, vote: 2 },
+  { applicant: { de: demo("jonas", "Jonas", 24, "Maschinenbau Master"), en: demo("jonas", "Jonas", 24, "Mechanical engineering, MSc") }, vote: 1 },
+  { applicant: { de: demo("sophie", "Sophie", 23, "Psychologie"), en: demo("sophie", "Sophie", 23, "Psychology") }, vote: 2 },
+  { applicant: { de: demo("noah", "Noah", 27, "Musiker und Barista"), en: demo("noah", "Noah", 27, "Musician and barista") }, vote: 0 },
 ];
 
 type Phase = "show" | "voted" | "out";
@@ -39,6 +41,8 @@ type Phase = "show" | "voted" | "out";
  * down a little on small screens.
  */
 export function PhoneDemo() {
+  const t = useT();
+  const locale = useLocale();
   const [index, setIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>("show");
   const [picked, setPicked] = useState<Vote | null>(null);
@@ -84,8 +88,8 @@ export function PhoneDemo() {
         </div>
         <div className="px-4 pb-5">
           <div className="flex items-baseline justify-between">
-            <span className="text-ui-medium font-semibold text-ink">3er WG Weserstraße</span>
-            <span className="text-ui-smaller tabular-nums text-faint">{(index % 13) + 1} von 13</span>
+            <span className="text-ui-medium font-semibold text-ink">{t("3er WG Weserstraße", "Flatshare for 3, Weserstraße")}</span>
+            <span className="text-ui-smaller tabular-nums text-faint">{t(`${(index % 13) + 1} von 13`, `${(index % 13) + 1} of 13`)}</span>
           </div>
           <div className="mt-2 h-[3px] overflow-hidden rounded-full bg-base-30">
             <div className="h-full rounded-full bg-accent transition-[width] duration-500" style={{ width: `${(((index % 13) + 1) / 13) * 100}%` }} />
@@ -94,7 +98,7 @@ export function PhoneDemo() {
           <div className="relative mt-4">
             {/* The next card waits underneath */}
             <div className="absolute inset-0 scale-[0.96] opacity-60">
-              <ProfileCard key={`under-${next.applicant.uid}`} applicant={next.applicant} />
+              <ProfileCard key={`under-${next.applicant[locale].uid}`} applicant={next.applicant[locale]} />
             </div>
             <div
               className="relative"
@@ -104,7 +108,7 @@ export function PhoneDemo() {
                 opacity: out ? 0 : 1,
               }}
             >
-              <ProfileCard key={card.applicant.uid} applicant={card.applicant} />
+              <ProfileCard key={card.applicant[locale].uid} applicant={card.applicant[locale]} />
             </div>
           </div>
 

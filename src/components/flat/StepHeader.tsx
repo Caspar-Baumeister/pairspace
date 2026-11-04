@@ -1,5 +1,10 @@
+"use client";
+
+import { useT } from "@/lib/i18n/client";
+
 /** Progress bar plus title for the setup steps. */
 export function StepHeader({ step, total, title, text }: { step: number; total: number; title: string; text?: string }) {
+  const t = useT();
   return (
     <div className="mb-7">
       <div className="flex items-center gap-3">
@@ -9,7 +14,7 @@ export function StepHeader({ step, total, title, text }: { step: number; total: 
           ))}
         </div>
         <span className="text-ui-smaller tabular-nums text-faint">
-          {step} von {total}
+          {t(`${step} von ${total}`, `${step} of ${total}`)}
         </span>
       </div>
       <h1 className="h2 mt-6">{title}</h1>

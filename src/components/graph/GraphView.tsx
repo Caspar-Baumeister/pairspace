@@ -15,13 +15,15 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { PaneHeader } from "@/components/app/AppShell";
 import { displayName, ProfileDetails } from "@/components/applicant/ProfileDetails";
 import { Toggle } from "@/components/ui/Field";
 import { Spinner } from "@/components/ui/Spinner";
+import { track } from "@/lib/analytics";
 import { useApplicants, useBallots, useContact } from "@/lib/firebase/data";
+import { useLocale, useLocalePath, useT } from "@/lib/i18n/client";
 import {
   bestGroups,
   buildModel,
@@ -39,6 +41,8 @@ import { ApplicantGraph, CLUSTER_COLORS, type GraphLink, type GraphNode } from "
 type Panel = "groups" | "person" | "all";
 
 export function GraphView({ flat }: { flat: Flat }) {
+  const t = useT();
+  const lp = useLocalePath();
   const applicants = useApplicants(flat.id);
   const ballots = useBallots(flat.id);
 
@@ -76,12 +80,12 @@ export function GraphView({ flat }: { flat: Flat }) {
     () =>
       complete.map((a, i) => ({
         id: a.uid,
-        label: a.firstName || "Ohne Namen",
+        label: a.firstName || t("Ohne Namen", "No name"),
         photoUrl: a.photos[0]?.url ?? null,
         weight: model.received[i] === null ? 0.3 : Math.min(1, Math.max(0, (model.received[i]! - 0.25) / 0.75)),
         cluster: clusterOf[i],
       })),
-    [complete, model, clusterOf],
+    [complete, model, clusterOf, t],
   );
   const links: GraphLink[] = useMemo(
     () =>
@@ -106,6 +110,14 @@ export function GraphView({ flat }: { flat: Flat }) {
   const votesPossible = complete.length * (complete.length - 1);
   const loading = applicants.loading || ballots.loading;
 
+  // Once per visit, as soon as there is a graph to see. Only the count, no names.
+  const graphTracked = useRef(false);
+  useEffect(() => {
+    if (loading || graphTracked.current || complete.length === 0) return;
+    graphTracked.current = true;
+    track("graph_opened", { applicants: complete.length });
+  }, [loading, complete.length]);
+
   const selectPerson = (id: string | null) => {
     setSelectedId(id);
     if (id) {
@@ -119,14 +131,14 @@ export function GraphView({ flat }: { flat: Flat }) {
     <>
       <PaneHeader
         icon={Waypoints}
-        title={`Bewerber · ${flat.title}`}
+        title={t(`Bewerber · ${flat.title}`, `Applicants · ${flat.title}`)}
         actions={
           <button
             type="button"
             className={`icon-btn ${panelOpen ? "is-active" : ""}`}
             onClick={() => setPanelOpen((o) => !o)}
-            aria-label="Seitenleiste rechts"
-            title="Seitenleiste rechts"
+            aria-label={t("Seitenleiste rechts", "Right sidebar")}
+            title={t("Seitenleiste rechts", "Right sidebar")}
           >
             <PanelRight size={16} strokeWidth={1.75} />
           </button>
@@ -158,13 +170,16 @@ export function GraphView({ flat }: { flat: Flat }) {
           {flat.status !== "live" ? (
             <div className="absolute left-3 top-3 flex max-w-[calc(100%-24px)] items-center gap-3 rounded-lg border border-accent-line bg-bg-2/95 px-3 py-2 text-ui-small backdrop-blur">
               <span className="text-muted">
-                {flat.status === "draft" ? "Noch nicht freigeschaltet." : "Pausiert, der Link nimmt keine Bewerbungen an."}
+                {flat.status === "draft"
+                  ? t("Noch nicht freigeschaltet.", "Not live yet.")
+                  : t("Pausiert, der Link nimmt keine Bewerbungen an.", "Paused, the link takes no applications.")}
               </span>
               <Link
-                href={flat.status === "draft" ? `/app/w/${flat.id}/einrichten` : `/app/w/${flat.id}/einstellungen`}
+                href={lp(flat.status === "draft" ? `/app/w/${flat.id}/einrichten` : `/app/w/${flat.id}/einstellungen`)}
                 className="inline-flex items-center gap-1 text-accent hover:underline"
               >
-                {flat.status === "draft" ? "Einrichtung abschließen" : "Einstellungen"} <ArrowRight size={13} strokeWidth={1.75} />
+                {flat.status === "draft" ? t("Einrichtung abschließen", "Finish setup") : t("Einstellungen", "Settings")}{" "}
+                <ArrowRight size={13} strokeWidth={1.75} />
               </Link>
             </div>
           ) : null}
@@ -188,28 +203,26 @@ export function GraphView({ flat }: { flat: Flat }) {
           ) : null}
 
           <div className="absolute bottom-0 right-0 flex gap-3 rounded-tl-lg border-l border-t border-line bg-bg-2 px-3 py-1 text-ui-smaller text-faint">
-            <span>{complete.length} Bewerber</span>
-            <span>{flat.rooms.length} Zimmer</span>
-            <span>
-              {votesGiven} von {votesPossible} Bewertungen
-            </span>
+            <span>{t(`${complete.length} Bewerber`, `${complete.length} ${complete.length === 1 ? "applicant" : "applicants"}`)}</span>
+            <span>{t(`${flat.rooms.length} Zimmer`, `${flat.rooms.length} ${flat.rooms.length === 1 ? "room" : "rooms"}`)}</span>
+            <span>{t(`${votesGiven} von ${votesPossible} Bewertungen`, `${votesGiven} of ${votesPossible} ratings`)}</span>
           </div>
         </div>
 
         {panelOpen ? (
           <aside className="absolute inset-y-0 right-0 z-20 flex w-[340px] max-w-full flex-col border-l border-line bg-bg-2 shadow-2xl lg:static lg:shadow-none">
             <div className="flex h-10 shrink-0 items-center gap-0.5 border-b border-line px-2">
-              <PanelTab active={panel === "groups"} onClick={() => setPanel("groups")} icon={<Sparkles size={15} strokeWidth={1.75} />} label="Beste Gruppen" />
-              <PanelTab active={panel === "all"} onClick={() => setPanel("all")} icon={<Users size={15} strokeWidth={1.75} />} label="Alle" />
+              <PanelTab active={panel === "groups"} onClick={() => setPanel("groups")} icon={<Sparkles size={15} strokeWidth={1.75} />} label={t("Beste Gruppen", "Best groups")} />
+              <PanelTab active={panel === "all"} onClick={() => setPanel("all")} icon={<Users size={15} strokeWidth={1.75} />} label={t("Alle", "All")} />
               <PanelTab
                 active={panel === "person"}
                 onClick={() => setPanel("person")}
                 icon={<UserRound size={15} strokeWidth={1.75} />}
-                label="Person"
+                label={t("Person", "Person")}
                 disabled={!selectedId}
               />
               <div className="flex-1" />
-              <button type="button" className="icon-btn lg:hidden" onClick={() => setPanelOpen(false)} aria-label="Schließen">
+              <button type="button" className="icon-btn lg:hidden" onClick={() => setPanelOpen(false)} aria-label={t("Schließen", "Close")}>
                 <X size={15} strokeWidth={1.75} />
               </button>
             </div>
@@ -250,7 +263,7 @@ export function GraphView({ flat }: { flat: Flat }) {
                 />
               ) : null}
               {panel === "person" && !selectedId ? (
-                <p className="p-4 text-ui-small text-faint">Klick im Graph auf eine Person.</p>
+                <p className="p-4 text-ui-small text-faint">{t("Klick im Graph auf eine Person.", "Click a person in the graph.")}</p>
               ) : null}
             </div>
           </aside>
@@ -279,19 +292,20 @@ function GraphControls(p: {
   linkForce: number;
   setLinkForce: (v: number) => void;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   return (
     <div className="absolute right-3 top-3 z-10 w-[232px] rounded-lg border border-line bg-bg-2/95 text-ui-small shadow-xl backdrop-blur">
       <button type="button" className="flex w-full items-center gap-1.5 px-3 py-2 text-muted hover:text-ink" onClick={() => setOpen((o) => !o)}>
         {open ? <ChevronDown size={14} strokeWidth={1.75} /> : <ChevronRight size={14} strokeWidth={1.75} />}
-        Graph Einstellungen
+        {t("Graph Einstellungen", "Graph settings")}
       </button>
       {open ? (
         <div className="space-y-4 border-t border-line px-3 pb-3 pt-3">
-          <ControlSection title="Gruppen">
+          <ControlSection title={t("Gruppen", "Groups")}>
             <label className="block">
               <span className="flex justify-between text-ui-smaller text-muted">
-                <span>Freie Zimmer</span>
+                <span>{t("Freie Zimmer", "Free rooms")}</span>
                 <span className="tabular-nums text-ink">{p.size}</span>
               </span>
               <input
@@ -303,26 +317,26 @@ function GraphControls(p: {
                 onChange={(e) => p.setSize(Number(e.target.value))}
               />
             </label>
-            <Row label="Cluster färben">
-              <Toggle checked={p.colorClusters} onChange={p.setColorClusters} label="Cluster färben" />
+            <Row label={t("Cluster färben", "Colour clusters")}>
+              <Toggle checked={p.colorClusters} onChange={p.setColorClusters} label={t("Cluster färben", "Colour clusters")} />
             </Row>
           </ControlSection>
-          <ControlSection title="Anzeige">
-            <Row label="Namen">
-              <Toggle checked={p.showLabels} onChange={p.setShowLabels} label="Namen anzeigen" />
+          <ControlSection title={t("Anzeige", "Display")}>
+            <Row label={t("Namen", "Names")}>
+              <Toggle checked={p.showLabels} onChange={p.setShowLabels} label={t("Namen anzeigen", "Show names")} />
             </Row>
-            <Row label="Ablehnungen">
-              <Toggle checked={p.showVetos} onChange={p.setShowVetos} label="Ablehnungen anzeigen" />
+            <Row label={t("Ablehnungen", "Rejections")}>
+              <Toggle checked={p.showVetos} onChange={p.setShowVetos} label={t("Ablehnungen anzeigen", "Show rejections")} />
             </Row>
           </ControlSection>
-          <ControlSection title="Kräfte">
-            <Slider label="Abstoßung" value={p.repel} onChange={p.setRepel} />
-            <Slider label="Anziehung" value={p.linkForce} onChange={p.setLinkForce} />
+          <ControlSection title={t("Kräfte", "Forces")}>
+            <Slider label={t("Abstoßung", "Repulsion")} value={p.repel} onChange={p.setRepel} />
+            <Slider label={t("Anziehung", "Attraction")} value={p.linkForce} onChange={p.setLinkForce} />
           </ControlSection>
           <div className="space-y-1.5 border-t border-line pt-3 text-ui-smaller text-faint">
-            <p>Linie und Nähe: beide mögen sich, je dicker desto mehr.</p>
-            <p>Abstand ohne Linie: mindestens eine Seite will eher nicht.</p>
-            <p>Größe: wie beliebt jemand insgesamt ist.</p>
+            <p>{t("Linie und Nähe: beide mögen sich, je dicker desto mehr.", "Line and closeness: both like each other, thicker means more.")}</p>
+            <p>{t("Abstand ohne Linie: mindestens eine Seite will eher nicht.", "Distance, no line: at least one side would rather not.")}</p>
+            <p>{t("Größe: wie beliebt jemand insgesamt ist.", "Size: how popular someone is overall.")}</p>
           </div>
         </div>
       ) : null}
@@ -416,14 +430,29 @@ function GroupsPanel({
   onPerson: (id: string) => void;
   applicantCount: number;
 }) {
+  const t = useT();
+  const locale = useLocale();
   const [explain, setExplain] = useState(false);
+  const missing = groupSize - applicantCount;
+  const open = (g: GroupResult, rank: number) => {
+    // Only when a group opens, not when it closes again.
+    if (key(g) !== selectedKey) track("group_opened", { rank });
+    onSelect(g);
+  };
   return (
     <div className="p-3">
       <div className="flex items-center justify-between px-1">
         <h2 className="text-ui-medium font-semibold">
-          {groupSize === 1 ? "Beste Einzelbewerber" : `Beste ${groupSize}er Gruppen`}
+          {groupSize === 1
+            ? t("Beste Einzelbewerber", "Best single applicants")
+            : t(`Beste ${groupSize}er Gruppen`, `Best groups of ${groupSize}`)}
         </h2>
-        <button type="button" className={`icon-btn ${explain ? "is-active" : ""}`} onClick={() => setExplain((e) => !e)} aria-label="So wird gerechnet">
+        <button
+          type="button"
+          className={`icon-btn ${explain ? "is-active" : ""}`}
+          onClick={() => setExplain((e) => !e)}
+          aria-label={t("So wird gerechnet", "How the score works")}
+        >
           <Info size={15} strokeWidth={1.75} />
         </button>
       </div>
@@ -431,13 +460,18 @@ function GroupsPanel({
 
       {applicantCount < groupSize ? (
         <p className="mt-2 px-1 text-ui-small text-faint">
-          Noch {groupSize - applicantCount} {groupSize - applicantCount === 1 ? "Bewerber" : "Bewerber"} bis zur ersten vollen
-          Gruppe. Bis dahin siehst du die beste Teilgruppe.
+          {t(
+            `Noch ${missing} Bewerber bis zur ersten vollen Gruppe. Bis dahin siehst du die beste Teilgruppe.`,
+            `${missing} more ${missing === 1 ? "applicant" : "applicants"} until the first full group. Until then you see the best partial group.`,
+          )}
         </p>
       ) : null}
       {groups.length === 0 && applicantCount > 0 ? (
         <p className="mt-3 px-1 text-ui-small text-faint">
-          Keine Gruppe ohne Ablehnung möglich. Warte auf weitere Bewerber oder wähle weniger freie Zimmer.
+          {t(
+            "Keine Gruppe ohne Ablehnung möglich. Warte auf weitere Bewerber oder wähle weniger freie Zimmer.",
+            "No group without a rejection yet. Wait for more applicants or pick fewer free rooms.",
+          )}
         </p>
       ) : null}
 
@@ -449,8 +483,8 @@ function GroupsPanel({
               <div
                 role="button"
                 tabIndex={0}
-                onClick={() => onSelect(g)}
-                onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onSelect(g)}
+                onClick={() => open(g, i + 1)}
+                onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && open(g, i + 1)}
                 className={`card block w-full cursor-pointer p-3 text-left transition ${
                   selected ? "border-accent-line bg-accent-soft" : "hover:border-base-40"
                 }`}
@@ -464,21 +498,21 @@ function GroupsPanel({
                   </div>
                   <div className="ml-auto text-right">
                     <div className="text-[22px] font-bold leading-none tabular-nums">{Math.round(g.score)}</div>
-                    <div className="text-[10px] uppercase tracking-wide text-faint">Punkte</div>
+                    <div className="text-[10px] uppercase tracking-wide text-faint">{t("Punkte", "points")}</div>
                   </div>
                 </div>
                 <div className="mt-2 truncate pl-8 text-ui-small text-muted">
                   {g.members.map((id) => byId.get(id)?.firstName).join(", ")}
                 </div>
-                {/* The last column fits "12 von 12", the bars share the rest. */}
+                {/* The last column fits "12 von 12" or "12 of 12", the bars share the rest. */}
                 <div className="mt-2.5 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 pl-8">
-                  <Meter label="Harmonie" value={g.harmony} />
-                  <Meter label="Zimmer" value={g.roomFit} />
+                  <Meter label={t("Harmonie", "Harmony")} value={g.harmony} />
+                  <Meter label={t("Zimmer", "Rooms")} value={g.roomFit} />
                   {g.possible ? (
                     <Meter
-                      label="Bewertet"
+                      label={t("Bewertet", "Rated")}
                       value={g.rated / g.possible}
-                      display={`${g.rated} von ${g.possible}`}
+                      display={t(`${g.rated} von ${g.possible}`, `${g.rated} of ${g.possible}`)}
                       muted
                     />
                   ) : null}
@@ -486,7 +520,7 @@ function GroupsPanel({
 
                 {selected ? (
                   <div className="mt-3 space-y-1.5 border-t border-line pt-3">
-                    <div className="ui-label mb-1">Zimmerverteilung</div>
+                    <div className="ui-label mb-1">{t("Zimmerverteilung", "Room assignment")}</div>
                     {g.members.map((id) => {
                       const room = flat.rooms.find((r) => r.id === g.assignment[id]);
                       const rank = room ? model.roomFit[model.index.get(id)!]?.[model.roomIds.indexOf(room.id)] : null;
@@ -503,19 +537,24 @@ function GroupsPanel({
                           <Avatar applicant={byId.get(id)} size={22} />
                           <span className="min-w-0 flex-1 truncate">{byId.get(id)?.firstName}</span>
                           <ArrowRight size={12} strokeWidth={1.75} className="text-faint" />
-                          <span className="max-w-[46%] truncate text-muted">{room?.name ?? "ohne Zimmer"}</span>
-                          {rank === 1 ? <span className="tag px-1.5 py-0 text-[10px]">Wunsch</span> : null}
+                          <span className="max-w-[46%] truncate text-muted">{room?.name ?? t("ohne Zimmer", "no room")}</span>
+                          {rank === 1 ? <span className="tag px-1.5 py-0 text-[10px]">{t("Wunsch", "Top pick")}</span> : null}
                         </button>
                       );
                     })}
                     <WeakestPair group={g} model={model} byId={byId} />
                     {g.mutualLikes > 0 ? (
                       <p className="text-ui-smaller text-faint">
-                        {g.mutualLikes} von {(g.members.length * (g.members.length - 1)) / 2} Paaren mögen sich gegenseitig.
+                        {t(
+                          `${g.mutualLikes} von ${pairCount(g)} Paaren mögen sich gegenseitig.`,
+                          pairCount(g) === 1 ? "The two like each other." : `${g.mutualLikes} of ${pairCount(g)} pairs like each other.`,
+                        )}
                       </p>
                     ) : null}
                     {totalRent(g, flat) ? (
-                      <p className="text-ui-smaller text-faint">Miete zusammen {euro(totalRent(g, flat)!)}</p>
+                      <p className="text-ui-smaller text-faint">
+                        {t(`Miete zusammen ${euro(totalRent(g, flat)!, locale)}`, `Total rent ${euro(totalRent(g, flat)!, locale)}`)}
+                      </p>
                     ) : null}
                   </div>
                 ) : null}
@@ -528,12 +567,16 @@ function GroupsPanel({
   );
 }
 
+const pairCount = (g: GroupResult) => (g.members.length * (g.members.length - 1)) / 2;
+
 function totalRent(g: GroupResult, flat: Flat): number | null {
   const sum = Object.values(g.assignment).reduce((s, roomId) => s + (flat.rooms.find((r) => r.id === roomId)?.rent ?? 0), 0);
   return sum || null;
 }
 
 function WeakestPair({ group, model, byId }: { group: GroupResult; model: MatchModel; byId: Map<string, Applicant> }) {
+  const t = useT();
+  const locale = useLocale();
   if (group.members.length < 2) return null;
   let worst: [string, string] | null = null;
   let worstW = Infinity;
@@ -551,42 +594,76 @@ function WeakestPair({ group, model, byId }: { group: GroupResult; model: MatchM
   if (!worst || worstW >= 0.75) return null;
   const i = model.index.get(worst[0])!;
   const j = model.index.get(worst[1])!;
+  const a = byId.get(worst[0])?.firstName;
+  const b = byId.get(worst[1])?.firstName;
+  const ab = <VoteWord vote={model.vote[i][j]} />;
+  const ba = <VoteWord vote={model.vote[j][i]} />;
+  // The word order differs, so each language gets its own sentence around the coloured votes.
   return (
     <p className="pt-1 text-ui-smaller text-faint">
-      Schwächstes Paar: {byId.get(worst[0])?.firstName} findet {byId.get(worst[1])?.firstName}{" "}
-      <VoteWord vote={model.vote[i][j]} />, umgekehrt <VoteWord vote={model.vote[j][i]} />.
+      {t("Schwächstes Paar:", "Weakest pair:")}{" "}
+      {locale === "en" ? (
+        <>
+          {a} says {ab} to {b}, {b} says {ba} to {a}.
+        </>
+      ) : (
+        <>
+          {a} findet {b} {ab}, umgekehrt {ba}.
+        </>
+      )}
     </p>
   );
 }
 
 function VoteWord({ vote }: { vote: Vote | null }) {
+  const t = useT();
   const o = voteOption(vote);
-  if (!o) return <span className="text-faint">noch offen</span>;
-  return <span style={{ color: o.color }}>{o.label.toLowerCase()}</span>;
+  if (!o) return <span className="text-faint">{t("noch offen", "nothing yet")}</span>;
+  return <span style={{ color: o.color }}>{t(o.label.de, o.label.en).toLowerCase()}</span>;
 }
 
 function Explainer() {
+  const t = useT();
   return (
     <div className="mt-2 space-y-2 rounded-lg border border-line bg-bg p-3 text-ui-smaller leading-relaxed text-muted">
       <p>
-        Jede Bewertung wird zu einem Wert: Auf keinen Fall 0, Schlecht 0,25, Mittel 0,5, Gut 0,75, Unbedingt 1. Für jedes
-        Paar nehmen wir das geometrische Mittel beider Richtungen, so zählt gegenseitige Sympathie mehr als einseitige.
+        {t(
+          "Jede Bewertung wird zu einem Wert: Auf keinen Fall 0, Schlecht 0,25, Mittel 0,5, Gut 0,75, Unbedingt 1. Für jedes Paar nehmen wir das geometrische Mittel beider Richtungen, so zählt gegenseitige Sympathie mehr als einseitige.",
+          "Every rating becomes a value: No way 0, Bad 0.25, Okay 0.5, Good 0.75, Absolutely 1. For each pair we take the geometric mean of both directions, so mutual liking counts more than one-sided liking.",
+        )}
       </p>
       <p>
-        <span className="text-ink">Harmonie</span> ist halb der Durchschnitt aller Paare, halb das schwächste Paar. Eine
-        WG ist nur so gut wie ihr schwierigstes Verhältnis.
+        <span className="text-ink">{t("Harmonie", "Harmony")}</span>{" "}
+        {t(
+          "ist halb der Durchschnitt aller Paare, halb das schwächste Paar. Eine WG ist nur so gut wie ihr schwierigstes Verhältnis.",
+          "is half the average of all pairs, half the weakest pair. A shared flat is only as good as its toughest relationship.",
+        )}
       </p>
       <p>
-        <span className="text-ink">Zimmer</span>: Der Hungarian Algorithmus verteilt die Zimmer so, dass die Wünsche
-        insgesamt am besten erfüllt werden.
+        <span className="text-ink">{t("Zimmer", "Rooms")}</span>
+        {t(
+          ": Der Hungarian Algorithmus verteilt die Zimmer so, dass die Wünsche insgesamt am besten erfüllt werden.",
+          ": the Hungarian algorithm assigns the rooms so that everyone's preferences are met as well as possible overall.",
+        )}
       </p>
       <p>
-        <span className="text-ink">Punkte</span> = 75 % Harmonie + 25 % Zimmer. Ein &quot;Auf keinen Fall&quot; in einer
-        Richtung schließt die Gruppe aus. Fehlende Bewertungen zählen als Mittel.{" "}
-        <span className="text-ink">Bewertet</span> zeigt, wie viele der möglichen Bewertungen in der Gruppe schon
-        abgegeben sind, bei drei Personen zum Beispiel 5 von 6.
+        <span className="text-ink">{t("Punkte", "Points")}</span>
+        {t(
+          ` = 75 % Harmonie + 25 % Zimmer. Ein "Auf keinen Fall" in einer Richtung schließt die Gruppe aus. Fehlende Bewertungen zählen als Mittel.`,
+          ` = 75% harmony + 25% rooms. A "No way" in either direction rules the group out. Missing ratings count as Okay.`,
+        )}{" "}
+        <span className="text-ink">{t("Bewertet", "Rated")}</span>{" "}
+        {t(
+          "zeigt, wie viele der möglichen Bewertungen in der Gruppe schon abgegeben sind, bei drei Personen zum Beispiel 5 von 6.",
+          "shows how many of the possible ratings within the group are already in, with three people for example 5 of 6.",
+        )}
       </p>
-      <p>Wir prüfen jede mögliche Gruppe, bei sehr vielen Bewerbern eine lokale Suche.</p>
+      <p>
+        {t(
+          "Wir prüfen jede mögliche Gruppe, bei sehr vielen Bewerbern eine lokale Suche.",
+          "We check every possible group, or run a local search when there are lots of applicants.",
+        )}
+      </p>
     </div>
   );
 }
@@ -631,6 +708,7 @@ function AllPanel({
   onPerson: (id: string) => void;
   selectedId: string | null;
 }) {
+  const t = useT();
   const rows = complete
     .map((a, i) => ({ a, received: model.received[i], cluster: clusterOf[i], given: model.vote[i].filter((v) => v !== null).length }))
     .sort((x, y) => (y.received ?? -1) - (x.received ?? -1));
@@ -645,16 +723,19 @@ function AllPanel({
         >
           <Avatar applicant={a} size={28} />
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-ink">{displayName(a)}</span>
+            <span className="block truncate text-ink">{displayName(a, t)}</span>
             <span className="block truncate text-[11px] text-faint">
-              {a.occupation || "ohne Angabe"} · hat {given} von {complete.length - 1} bewertet
+              {t(
+                `${a.occupation || "ohne Angabe"} · hat ${given} von ${complete.length - 1} bewertet`,
+                `${a.occupation || "not given"} · rated ${given} of ${complete.length - 1}`,
+              )}
             </span>
           </span>
           {cluster >= 0 ? (
             <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: CLUSTER_COLORS[cluster % CLUSTER_COLORS.length] }} />
           ) : null}
           <span className="w-8 shrink-0 text-right text-ui-smaller tabular-nums text-muted">
-            {received === null ? "neu" : Math.round(received * 100)}
+            {received === null ? t("neu", "new") : Math.round(received * 100)}
           </span>
         </button>
       ))}
@@ -683,6 +764,8 @@ function PersonPanel({
   onPerson: (id: string) => void;
   onGroup: (g: GroupResult) => void;
 }) {
+  const t = useT();
+  const locale = useLocale();
   const contact = useContact(flat.id, applicant.uid);
   const i = model.index.get(applicant.uid)!;
   const best = useMemo(() => bestGroups(model, groupSize, 1, i)[0] ?? null, [model, groupSize, i]);
@@ -701,7 +784,7 @@ function PersonPanel({
     <div className="p-4">
       <ProfileDetails applicant={applicant} compact />
 
-      <Section title="Kontakt">
+      <Section title={t("Kontakt", "Contact")}>
         {contact.data ? (
           <div className="space-y-1 text-ui-small">
             <a href={`mailto:${contact.data.email}`} className="flex items-center gap-2 text-accent hover:underline">
@@ -714,12 +797,14 @@ function PersonPanel({
             ) : null}
           </div>
         ) : (
-          <p className="text-ui-small text-faint">Noch keine Kontaktdaten hinterlegt.</p>
+          <p className="text-ui-small text-faint">{t("Noch keine Kontaktdaten hinterlegt.", "No contact details yet.")}</p>
         )}
       </Section>
 
       {best && groupSize > 1 ? (
-        <Section title={`Beste ${groupSize}er Gruppe mit ${applicant.firstName}`}>
+        <Section
+          title={t(`Beste ${groupSize}er Gruppe mit ${applicant.firstName}`, `Best group of ${groupSize} with ${applicant.firstName}`)}
+        >
           <button type="button" className="card flex w-full items-center gap-3 p-2.5 text-left hover:border-base-40" onClick={() => onGroup(best)}>
             <div className="flex -space-x-2">
               {best.members.map((id) => (
@@ -734,27 +819,27 @@ function PersonPanel({
         </Section>
       ) : null}
 
-      <Section title="Zimmerwünsche">
+      <Section title={t("Zimmerwünsche", "Room preferences")}>
         {ballot && Object.keys(ballot.roomRanks ?? {}).length ? (
           <ol className="space-y-1">
             {ranked.map(({ room, rank }) => (
               <li key={room.id} className="flex items-center gap-2 text-ui-small">
                 <span className="w-5 text-right tabular-nums text-faint">{rank ?? "·"}</span>
                 <span className="min-w-0 flex-1 truncate text-muted">{room.name}</span>
-                {room.rent ? <span className="text-ui-smaller text-faint">{euro(room.rent)}</span> : null}
+                {room.rent ? <span className="text-ui-smaller text-faint">{euro(room.rent, locale)}</span> : null}
               </li>
             ))}
           </ol>
         ) : (
-          <p className="text-ui-small text-faint">Noch nicht sortiert.</p>
+          <p className="text-ui-small text-faint">{t("Noch nicht sortiert.", "Not ranked yet.")}</p>
         )}
       </Section>
 
-      <Section title="Gegenseitige Einschätzung">
+      <Section title={t("Gegenseitige Einschätzung", "Mutual ratings")}>
         <div className="mb-2 grid grid-cols-[1fr_76px_76px] gap-2 text-[10px] uppercase tracking-wide text-faint">
           <span />
-          <span className="text-center">gibt</span>
-          <span className="text-center">bekommt</span>
+          <span className="text-center">{t("gibt", "gives")}</span>
+          <span className="text-center">{t("bekommt", "gets")}</span>
         </div>
         <div className="space-y-0.5">
           {others.map((o) => (
@@ -788,15 +873,16 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 function VotePill({ vote }: { vote: Vote | null }) {
+  const t = useT();
   const o = voteOption(vote);
-  if (!o) return <span className="text-center text-[11px] text-faint">offen</span>;
+  if (!o) return <span className="text-center text-[11px] text-faint">{t("offen", "not yet")}</span>;
   return (
     <span
       className="truncate rounded-full px-1.5 py-0.5 text-center text-[11px]"
       style={{ color: o.color, background: `color-mix(in srgb, ${o.color} 14%, transparent)` }}
-      title={o.label}
+      title={t(o.label.de, o.label.en)}
     >
-      {o.short}
+      {t(o.short.de, o.short.en)}
     </span>
   );
 }
@@ -821,6 +907,8 @@ export function Avatar({ applicant, size, ring = false }: { applicant?: Applican
 }
 
 function EmptyGraph({ flat }: { flat: Flat }) {
+  const t = useT();
+  const lp = useLocalePath();
   return (
     <div className="absolute inset-0 flex items-center justify-center p-6">
       <div className="max-w-[360px] text-center">
@@ -837,12 +925,15 @@ function EmptyGraph({ flat }: { flat: Flat }) {
             <circle cx="55" cy="62" r="5" />
           </g>
         </svg>
-        <h2 className="h4 mt-4">Noch keine Bewerber</h2>
+        <h2 className="h4 mt-4">{t("Noch keine Bewerber", "No applicants yet")}</h2>
         <p className="mt-2 text-ui-small text-muted">
-          Sobald sich jemand über deinen Link einträgt und andere einschätzt, wächst hier der Graph.
+          {t(
+            "Sobald sich jemand über deinen Link einträgt und andere einschätzt, wächst hier der Graph.",
+            "As soon as someone signs up through your link and rates the others, the graph grows here.",
+          )}
         </p>
-        <Link href={`/app/w/${flat.id}/link`} className="btn btn-cta mt-5">
-          Link teilen
+        <Link href={lp(`/app/w/${flat.id}/link`)} className="btn btn-cta mt-5">
+          {t("Link teilen", "Share link")}
         </Link>
       </div>
     </div>

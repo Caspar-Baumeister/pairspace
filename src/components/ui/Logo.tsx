@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+
+import { useLocalePath } from "@/lib/i18n/client";
 
 /** Three linked nodes, a tiny version of the graph view. */
 export function LogoMark({ size = 20 }: { size?: number }) {
@@ -12,9 +16,11 @@ export function LogoMark({ size = 20 }: { size?: number }) {
   );
 }
 
-export function Logo({ href = "/" }: { href?: string }) {
+/** Links home in the current language. A given href is used as it is. */
+export function Logo({ href }: { href?: string }) {
+  const lp = useLocalePath();
   return (
-    <Link href={href} className="inline-flex items-center gap-2 text-ink">
+    <Link href={href ?? lp("/")} className="inline-flex items-center gap-2 text-ink">
       <LogoMark />
       <span className="text-[15px] font-semibold tracking-[-0.01em]">Pairspace</span>
     </Link>

@@ -25,7 +25,15 @@ function storage(): FirebaseStorage {
   return s;
 }
 
-export class PhotoError extends Error {}
+/** A reason the person can act on, in both languages. Show it with t(e.message, e.en). */
+export class PhotoError extends Error {
+  constructor(
+    de: string,
+    readonly en: string,
+  ) {
+    super(de);
+  }
+}
 
 /** How a picture is cut before upload. */
 export type PhotoShape =
@@ -44,8 +52,8 @@ export const SHAPES = {
  * which keeps uploads fast and storage tiny.
  */
 export async function preparePhoto(file: File, shape: PhotoShape): Promise<Blob> {
-  if (!file.type.startsWith("image/")) throw new PhotoError("Das ist kein Bild.");
-  if (file.size > MAX_BYTES) throw new PhotoError("Das Bild ist größer als 12 MB.");
+  if (!file.type.startsWith("image/")) throw new PhotoError("Das ist kein Bild.", "That is not an image.");
+  if (file.size > MAX_BYTES) throw new PhotoError("Das Bild ist größer als 12 MB.", "The image is larger than 12 MB.");
 
   const bitmap = await createImageBitmap(file);
   const { width: bw, height: bh } = bitmap;
@@ -80,12 +88,12 @@ export async function preparePhoto(file: File, shape: PhotoShape): Promise<Blob>
   canvas.width = outW;
   canvas.height = outH;
   const ctx = canvas.getContext("2d");
-  if (!ctx) throw new PhotoError("Dein Browser konnte das Bild nicht verarbeiten.");
+  if (!ctx) throw new PhotoError("Dein Browser konnte das Bild nicht verarbeiten.", "Your browser could not process the image.");
   ctx.drawImage(bitmap, sx, sy, sw, sh, 0, 0, outW, outH);
   bitmap.close();
 
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, OUTPUT_TYPE, 0.84));
-  if (!blob) throw new PhotoError("Das Bild konnte nicht gelesen werden.");
+  if (!blob) throw new PhotoError("Das Bild konnte nicht gelesen werden.", "The image could not be read.");
   return blob;
 }
 
@@ -100,8 +108,11 @@ export async function uploadPhoto(path: string, file: File, shape: PhotoShape): 
     return { url: await getDownloadURL(objectRef), path };
   } catch (e) {
     const code = (e as { code?: string }).code ?? "";
-    if (code === "storage/unauthorized") throw new PhotoError("Das Bild wurde abgelehnt.");
-    throw new PhotoError("Hochladen hat nicht geklappt. Prüf deine Verbindung und versuch es nochmal.");
+    if (code === "storage/unauthorized") throw new PhotoError("Das Bild wurde abgelehnt.", "The image was rejected.");
+    throw new PhotoError(
+      "Hochladen hat nicht geklappt. Prüf deine Verbindung und versuch es nochmal.",
+      "The upload did not work. Check your connection and try again.",
+    );
   }
 }
 

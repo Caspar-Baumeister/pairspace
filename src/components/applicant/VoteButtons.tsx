@@ -2,6 +2,7 @@
 
 import { Ban, Heart, Minus, ThumbsDown, ThumbsUp, type LucideIcon } from "lucide-react";
 
+import { useT } from "@/lib/i18n/client";
 import { VOTES } from "@/lib/options";
 import type { Vote } from "@/lib/types";
 
@@ -23,6 +24,7 @@ export function VoteButtons({
   disabled?: boolean;
   selected?: Vote | null;
 }) {
+  const t = useT();
   return (
     <div className="flex items-start justify-between gap-1">
       {VOTES.map((o, i) => {
@@ -35,7 +37,7 @@ export function VoteButtons({
             type="button"
             disabled={disabled}
             onClick={() => onVote(o.value)}
-            aria-label={`${o.label} (Taste ${i + 1})`}
+            aria-label={t(`${o.label.de} (Taste ${i + 1})`, `${o.label.en} (key ${i + 1})`)}
             aria-pressed={isSelected}
             className="group flex w-[64px] flex-col items-center gap-1.5 disabled:opacity-50"
           >
@@ -51,7 +53,7 @@ export function VoteButtons({
             >
               <Icon size={big ? 24 : 20} strokeWidth={2} fill={o.value === 2 ? "currentColor" : "none"} />
             </span>
-            <span className="text-center text-[11px] leading-tight text-muted">{o.label}</span>
+            <span className="text-center text-[11px] leading-tight text-muted">{t(o.label.de, o.label.en)}</span>
           </button>
         );
       })}
@@ -61,6 +63,7 @@ export function VoteButtons({
 
 /** A compact row of five dots to change a vote in a list. */
 export function VoteDots({ value, onChange }: { value: Vote | null; onChange: (vote: Vote) => void }) {
+  const t = useT();
   return (
     <div className="flex gap-1">
       {VOTES.map((o) => {
@@ -70,8 +73,8 @@ export function VoteDots({ value, onChange }: { value: Vote | null; onChange: (v
           <button
             key={o.value}
             type="button"
-            title={o.label}
-            aria-label={o.label}
+            title={t(o.label.de, o.label.en)}
+            aria-label={t(o.label.de, o.label.en)}
             aria-pressed={active}
             onClick={() => onChange(o.value)}
             className="flex h-7 w-7 items-center justify-center rounded-full border transition-colors"

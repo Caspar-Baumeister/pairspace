@@ -1,48 +1,68 @@
 "use client";
 
 import { BedDouble, ListOrdered, MapPin, ShieldCheck, Users, UserRound, type LucideIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { RoomCard } from "@/components/flat/RoomCard";
+import { LanguageSwitch } from "@/components/site/LanguageSwitch";
 import { LogoMark } from "@/components/ui/Logo";
 import { Spinner } from "@/components/ui/Spinner";
+import { track } from "@/lib/analytics";
+import { translator, type Locale } from "@/lib/i18n";
+import { useLocale, useT } from "@/lib/i18n/client";
+import type { Label } from "@/lib/options";
 import { euro } from "@/lib/plans";
 import type { Flat } from "@/lib/types";
 import { Column } from "./FlowShell";
 
-const STEPS: { icon: LucideIcon; title: string; text: string }[] = [
+const STEPS: { icon: LucideIcon; title: Label; text: Label }[] = [
   {
     icon: Users,
-    title: "Mitbewerber einschätzen",
-    text: "Du siehst, wer sich schon beworben hat, und sagst bei jeder Person, wie gut ihr zusammen wohnen könntet.",
+    title: { de: "Mitbewerber einschätzen", en: "Rate the other applicants" },
+    text: {
+      de: "Du siehst, wer sich schon beworben hat, und sagst bei jeder Person, wie gut ihr zusammen wohnen könntet.",
+      en: "You see who has already applied and say for each person how well you could live together.",
+    },
   },
   {
     icon: ListOrdered,
-    title: "Zimmer sortieren",
-    text: "Bring die Zimmer in deine Reihenfolge. Zwei Zimmer dürfen auch gleich gut sein.",
+    title: { de: "Zimmer sortieren", en: "Rank the rooms" },
+    text: {
+      de: "Bring die Zimmer in deine Reihenfolge. Zwei Zimmer dürfen auch gleich gut sein.",
+      en: "Put the rooms in your order. Two rooms can also be equally good.",
+    },
   },
   {
     icon: UserRound,
-    title: "Profil anlegen",
-    text: "Ein paar Fotos und ein paar Sätze über dich, damit die anderen dich auch einschätzen können.",
+    title: { de: "Profil anlegen", en: "Set up your profile" },
+    text: {
+      de: "Ein paar Fotos und ein paar Sätze über dich, damit die anderen dich auch einschätzen können.",
+      en: "A few photos and a few lines about you, so the others can rate you too.",
+    },
   },
 ];
 
-export function rentRange(flat: Flat): string | null {
+export function rentRange(flat: Flat, locale: Locale = "de"): string | null {
+  const t = translator(locale);
   const rents = flat.rooms.map((r) => r.rent).filter((r): r is number => typeof r === "number" && r > 0);
   if (!rents.length) return null;
   const min = Math.min(...rents);
   const max = Math.max(...rents);
-  return min === max ? `${euro(min)} warm` : `${euro(min)} bis ${euro(max)} warm`;
+  const lo = euro(min, locale);
+  const hi = euro(max, locale);
+  return min === max ? t(`${lo} warm`, `${lo} incl. bills`) : t(`${lo} bis ${hi} warm`, `${lo} to ${hi} incl. bills`);
 }
 
 export function PrivacyNote() {
+  const t = useT();
   return (
     <div className="flex gap-3 rounded-xl border border-accent-line bg-accent-soft p-4">
       <ShieldCheck size={18} strokeWidth={1.75} className="mt-0.5 shrink-0 text-accent" />
       <p className="text-ui-small leading-relaxed text-ink">
-        Deine Bewertungen, Zimmerwünsche und Kontaktdaten sieht nur der Vermieter. Andere Bewerber sehen nur
-        dein Profil, und nur für diese Wohnung. Wenn die Suche vorbei ist, wird deine Bewerbung gelöscht.
+        {t(
+          "Deine Bewertungen, Zimmerwünsche und Kontaktdaten sieht nur der Vermieter. Andere Bewerber sehen nur dein Profil, und nur für diese Wohnung. Wenn die Suche vorbei ist, wird deine Bewerbung gelöscht.",
+          "Only the landlord sees your ratings, room choices and contact details. Other applicants only see your profile, and only for this flat. Once the search is over, your application is deleted.",
+        )}
       </p>
     </div>
   );
@@ -57,19 +77,32 @@ export function Intro({
   onStart: () => Promise<void>;
   isOwner: boolean;
 }) {
+  const t = useT();
+  const locale = useLocale();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const cover = flat.rooms.find((r) => r.photo)?.photo?.url ?? null;
   const place = [flat.district, flat.city].filter(Boolean).join(", ");
-  const rent = rentRange(flat);
+  const rent = rentRange(flat, locale);
+
+  // Once per time the intro is shown, the owner previewing their own link does not count.
+  useEffect(() => {
+    if (!isOwner) track("applicant_intro_viewed");
+  }, [isOwner]);
 
   const start = async () => {
     setBusy(true);
     setError("");
+    track("applicant_started");
     try {
       await onStart();
     } catch {
-      setError("Das hat nicht geklappt. Prüf deine Verbindung und versuch es nochmal.");
+      setError(
+        t(
+          "Das hat nicht geklappt. Prüf deine Verbindung und versuch es nochmal.",
+          "That did not work. Check your connection and try again.",
+        ),
+      );
       setBusy(false);
     }
   };
@@ -79,6 +112,7 @@ export function Intro({
       <Column className="pt-4">
         <div className="mb-4 flex items-center gap-2 text-ui-small font-semibold text-ink">
           <LogoMark size={18} /> Pairspace
+          <LanguageSwitch source="applicant" className="ml-auto font-normal" />
         </div>
 
         <div className="relative aspect-[16/10] overflow-hidden rounded-2xl border border-line bg-base-25">
@@ -93,7 +127,7 @@ export function Intro({
           <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/60 to-transparent" />
         </div>
 
-        <h1 className="h1 mt-5 text-ink">{flat.title || "WG Zimmer"}</h1>
+        <h1 className="h1 mt-5 text-ink">{flat.title || t("WG Zimmer", "Room in a shared flat")}</h1>
         {place ? (
           <p className="mt-1.5 flex items-center gap-1.5 text-ui-medium text-muted">
             <MapPin size={15} strokeWidth={1.75} className="text-faint" />
@@ -102,10 +136,12 @@ export function Intro({
         ) : null}
         <div className="mt-3 flex flex-wrap gap-1.5">
           <span className="tag">
-            {flat.rooms.length} {flat.rooms.length === 1 ? "Zimmer" : "Zimmer frei"}
+            {flat.rooms.length === 1
+              ? t("1 Zimmer", "1 room")
+              : t(`${flat.rooms.length} Zimmer frei`, `${flat.rooms.length} rooms available`)}
           </span>
           {rent ? <span className="tag">{rent}</span> : null}
-          <span className="tag">möbliert</span>
+          <span className="tag">{t("möbliert", "furnished")}</span>
         </div>
 
         {flat.description ? (
@@ -125,7 +161,7 @@ export function Intro({
               )}
             </div>
             <div className="min-w-0">
-              <p className="text-ui-smaller text-faint">Vermietet von</p>
+              <p className="text-ui-smaller text-faint">{t("Vermietet von", "Landlord")}</p>
               <p className="text-ui-medium font-semibold text-ink">{flat.host.name}</p>
               {flat.host.about ? <p className="mt-1 text-ui-small text-muted">{flat.host.about}</p> : null}
             </div>
@@ -136,7 +172,7 @@ export function Intro({
       {flat.rooms.length ? (
         <section className="mt-7">
           <Column>
-            <p className="ui-label">Die Zimmer</p>
+            <p className="ui-label">{t("Die Zimmer", "The rooms")}</p>
           </Column>
           <div className="mx-auto mt-2 flex w-full max-w-[440px] snap-x gap-3 overflow-x-auto px-4 pb-2">
             {flat.rooms.map((room) => (
@@ -149,18 +185,18 @@ export function Intro({
       ) : null}
 
       <Column className="mt-7">
-        <p className="ui-label">So läuft es</p>
+        <p className="ui-label">{t("So läuft es", "How it works")}</p>
         <ol className="mt-3 grid gap-4">
           {STEPS.map(({ icon: Icon, title, text }, i) => (
-            <li key={title} className="flex gap-3">
+            <li key={title.de} className="flex gap-3">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-line bg-base-10 text-accent">
                 <Icon size={15} strokeWidth={1.75} />
               </span>
               <div>
                 <p className="text-ui-medium font-semibold text-ink">
-                  <span className="text-faint">{i + 1}.</span> {title}
+                  <span className="text-faint">{i + 1}.</span> {t(title.de, title.en)}
                 </p>
-                <p className="mt-0.5 text-ui-small leading-relaxed text-muted">{text}</p>
+                <p className="mt-0.5 text-ui-small leading-relaxed text-muted">{t(text.de, text.en)}</p>
               </div>
             </li>
           ))}
@@ -172,18 +208,23 @@ export function Intro({
 
         {isOwner ? (
           <p className="mt-6 rounded-xl border border-line bg-base-10 p-4 text-ui-small text-muted">
-            Das ist deine eigene Wohnung. So sehen Bewerber deinen Link. Zum Ausprobieren öffne ihn in einem
-            privaten Fenster.
+            {t(
+              "Das ist deine eigene Wohnung. So sehen Bewerber deinen Link. Zum Ausprobieren öffne ihn in einem privaten Fenster.",
+              "This is your own flat. This is how applicants see your link. To try it out, open it in a private window.",
+            )}
           </p>
         ) : (
           <>
             <button type="button" className="btn btn-cta btn-lg mt-6 w-full" onClick={start} disabled={busy}>
               {busy ? <Spinner size={14} /> : null}
-              Los geht&apos;s
+              {t("Los geht's", "Let's go")}
             </button>
             {error ? <p className="mt-2 text-center text-ui-small text-red">{error}</p> : null}
             <p className="mt-3 text-center text-ui-smaller text-faint">
-              Kein Download, kein Passwort. Dauert etwa fünf Minuten.
+              {t(
+                "Kein Download, kein Passwort. Dauert etwa fünf Minuten.",
+                "No download, no password. Takes about five minutes.",
+              )}
             </p>
           </>
         )}
@@ -193,17 +234,26 @@ export function Intro({
 }
 
 export function NotLive({ isOwner }: { isOwner: boolean }) {
+  const t = useT();
   return (
     <div className="flex min-h-dvh items-center justify-center px-6">
       <div className="max-w-[360px] text-center fade-up">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-line bg-base-10 text-ink">
           <LogoMark size={22} />
         </div>
-        <h1 className="h3 mt-5 text-ink">Diese Wohnung ist gerade nicht freigeschaltet</h1>
+        <h1 className="h3 mt-5 text-ink">
+          {t("Diese Wohnung ist gerade nicht freigeschaltet", "This flat is not open right now")}
+        </h1>
         <p className="mt-3 text-ui-medium leading-relaxed text-muted">
           {isOwner
-            ? "Schalte den Link in deinem Konto frei, dann können sich Bewerber hier melden."
-            : "Vielleicht ist die Suche schon vorbei, oder der Link ist noch nicht aktiv. Frag am besten bei der Person nach, die dir den Link geschickt hat."}
+            ? t(
+                "Schalte den Link in deinem Konto frei, dann können sich Bewerber hier melden.",
+                "Turn on the link in your account, then applicants can apply here.",
+              )
+            : t(
+                "Vielleicht ist die Suche schon vorbei, oder der Link ist noch nicht aktiv. Frag am besten bei der Person nach, die dir den Link geschickt hat.",
+                "Maybe the search is already over, or the link is not active yet. Best ask the person who sent you the link.",
+              )}
         </p>
       </div>
     </div>

@@ -17,6 +17,7 @@ import {
 } from "firebase/firestore";
 import { useEffect, useState } from "react";
 
+import type { Locale } from "../i18n";
 import type { Applicant, ApplicantContact, Ballot, Flat, Landlord, Lifestyle, Room, Vote } from "../types";
 import { firebase } from "./client";
 import { randomId } from "./storage";
@@ -142,10 +143,10 @@ export async function updateLandlord(uid: string, patch: Partial<Pick<Landlord, 
 
 /* ------------------------------------------------------------------ flat */
 
-export function newRoom(index: number): Room {
+export function newRoom(index: number, locale: Locale = "de"): Room {
   return {
     id: randomId(6),
-    name: `Zimmer ${index + 1}`,
+    name: locale === "en" ? `Room ${index + 1}` : `Zimmer ${index + 1}`,
     rent: null,
     size: null,
     photo: null,
@@ -157,6 +158,7 @@ export function newRoom(index: number): Room {
 export async function createFlat(
   owner: Pick<Landlord, "uid" | "name" | "about" | "photo">,
   data: Pick<Flat, "title" | "city" | "district" | "description">,
+  locale: Locale = "de",
 ): Promise<string> {
   const { db } = firebase();
   const id = randomId(8);
@@ -166,7 +168,7 @@ export async function createFlat(
     ownerUid: owner.uid,
     ...data,
     host: { name: owner.name, about: owner.about, photoUrl: owner.photo?.url ?? null },
-    rooms: [newRoom(0), newRoom(1), newRoom(2)],
+    rooms: [newRoom(0, locale), newRoom(1, locale), newRoom(2, locale)],
     status: "draft",
     createdAt: now,
     updatedAt: now,

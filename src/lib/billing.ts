@@ -7,12 +7,12 @@ import type { PlanInterval, Subscription } from "./types";
 export async function startSubscription(interval: PlanInterval): Promise<Subscription> {
   const { auth } = firebase();
   const token = await auth.currentUser?.getIdToken();
-  if (!token) throw new Error("Nicht angemeldet");
+  if (!token) throw new Error("Not signed in");
   const res = await fetch("/api/abo", {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
     body: JSON.stringify({ interval }),
   });
-  if (!res.ok) throw new Error("Das Abo konnte nicht gestartet werden.");
+  if (!res.ok) throw new Error("The plan could not be started.");
   return ((await res.json()) as { subscription: Subscription }).subscription;
 }

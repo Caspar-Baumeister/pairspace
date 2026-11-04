@@ -4,16 +4,20 @@ import { Check } from "lucide-react";
 import { useState } from "react";
 
 import { Spinner } from "@/components/ui/Spinner";
+import type { T } from "@/lib/i18n";
+import { useLocale, useT } from "@/lib/i18n/client";
 import { BASIC, euro } from "@/lib/plans";
 import type { PlanInterval } from "@/lib/types";
 
-export const BASIC_FEATURES = [
-  "Unbegrenzte Wohnungen",
-  "Unbegrenzt viele Bewerber",
-  "Matching Graph mit Clustern",
-  "Beste Gruppen samt Zimmerverteilung",
-  "Eigener Link und QR Code für deine Anzeige",
-];
+export function basicFeatures(t: T): string[] {
+  return [
+    t("Unbegrenzte Wohnungen", "Unlimited flats"),
+    t("Unbegrenzt viele Bewerber", "Unlimited applicants"),
+    t("Matching Graph mit Clustern", "Matching graph with clusters"),
+    t("Beste Gruppen samt Zimmerverteilung", "Best groups including who gets which room"),
+    t("Eigener Link und QR Code für deine Anzeige", "Your own link and QR code for your listing"),
+  ];
+}
 
 /**
  * Monthly and yearly Basic. `onChoose` decides what the button does: on the
@@ -21,15 +25,19 @@ export const BASIC_FEATURES = [
  */
 export function PricingCards({
   onChoose,
-  cta = `${BASIC.trialDays} Tage kostenlos testen`,
+  cta,
   current,
 }: {
   onChoose: (interval: PlanInterval) => Promise<void> | void;
   cta?: string;
   current?: PlanInterval | null;
 }) {
+  const t = useT();
+  const locale = useLocale();
   const [busy, setBusy] = useState<PlanInterval | null>(null);
   const yearlySaving = BASIC.monthly * 12 - BASIC.yearly;
+  const days = BASIC.trialDays;
+  const label = cta ?? t(`${days} Tage kostenlos testen`, `Try free for ${days} days`);
 
   const choose = async (interval: PlanInterval) => {
     setBusy(interval);
@@ -40,19 +48,20 @@ export function PricingCards({
     }
   };
 
+  const perMonth = euro(Math.round((BASIC.yearly / 12) * 100) / 100, locale);
   const plans: { interval: PlanInterval; price: string; per: string; note: string; badge?: string }[] = [
     {
       interval: "month",
-      price: euro(BASIC.monthly),
-      per: "pro Monat",
-      note: `${BASIC.trialDays} Tage kostenlos, danach monatlich kündbar`,
+      price: euro(BASIC.monthly, locale),
+      per: t("pro Monat", "per month"),
+      note: t(`${days} Tage kostenlos, danach monatlich kündbar`, `Free for ${days} days, then cancel any month`),
     },
     {
       interval: "year",
-      price: euro(BASIC.yearly),
-      per: "pro Jahr",
-      note: `${BASIC.trialDays} Tage kostenlos, entspricht ${euro(Math.round((BASIC.yearly / 12) * 100) / 100)} im Monat`,
-      badge: `${euro(Math.round(yearlySaving))} gespart`,
+      price: euro(BASIC.yearly, locale),
+      per: t("pro Jahr", "per year"),
+      note: t(`${days} Tage kostenlos, entspricht ${perMonth} im Monat`, `Free for ${days} days, works out at ${perMonth} per month`),
+      badge: t(`${euro(Math.round(yearlySaving), locale)} gespart`, `Save ${euro(Math.round(yearlySaving), locale)}`),
     },
   ];
 
@@ -65,7 +74,7 @@ export function PricingCards({
         >
           <div className="flex items-center justify-between">
             <span className="text-ui-small font-semibold text-muted">
-              Basic {p.interval === "month" ? "monatlich" : "jährlich"}
+              {p.interval === "month" ? t("Basic monatlich", "Basic monthly") : t("Basic jährlich", "Basic yearly")}
             </span>
             {p.badge ? <span className="tag">{p.badge}</span> : null}
           </div>
@@ -75,7 +84,7 @@ export function PricingCards({
           </div>
           <p className="mt-1 text-ui-smaller text-muted">{p.note}</p>
           <ul className="mt-4 flex-1 space-y-2">
-            {BASIC_FEATURES.map((f) => (
+            {basicFeatures(t).map((f) => (
               <li key={f} className="flex items-start gap-2 text-ui-small text-muted">
                 <Check size={14} strokeWidth={2} className="mt-[3px] shrink-0 text-accent" />
                 {f}
@@ -89,7 +98,7 @@ export function PricingCards({
             onClick={() => choose(p.interval)}
           >
             {busy === p.interval ? <Spinner size={14} /> : null}
-            {current === p.interval ? "Aktueller Tarif" : cta}
+            {current === p.interval ? t("Aktueller Tarif", "Current plan") : label}
           </button>
         </div>
       ))}

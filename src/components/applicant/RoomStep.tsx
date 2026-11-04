@@ -4,7 +4,9 @@ import { ArrowDown, ArrowUp, BedDouble, CalendarDays, Equal, GripVertical, Ruler
 import { useMemo, useState } from "react";
 
 import { Spinner } from "@/components/ui/Spinner";
+import { track } from "@/lib/analytics";
 import { saveRoomRanks } from "@/lib/firebase/data";
+import { useLocale, useT } from "@/lib/i18n/client";
 import { formatDate } from "@/lib/options";
 import { euro } from "@/lib/plans";
 import type { Room } from "@/lib/types";
@@ -65,6 +67,8 @@ export function RoomStep({
   onDone: () => void;
   onBack?: () => void;
 }) {
+  const t = useT();
+  const locale = useLocale();
   const [order, setOrder] = useState<Order>(() => fromRanks(rooms, ranks));
   const [dragging, setDragging] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
@@ -105,9 +109,10 @@ export function RoomStep({
     setError("");
     try {
       await saveRoomRanks(flatId, uid, competitionRanks(current));
+      if (!returning) track("applicant_rooms_done");
       onDone();
     } catch {
-      setError("Speichern hat nicht geklappt. Prüf deine Verbindung.");
+      setError(t("Speichern hat nicht geklappt. Prüf deine Verbindung.", "Saving did not work. Check your connection."));
       setBusy(false);
     }
   };
@@ -115,23 +120,26 @@ export function RoomStep({
   return (
     <div className="flex min-h-dvh flex-col">
       <FlowHeader
-        title={returning ? "Zimmer sortieren" : flatTitle}
-        subtitle={returning ? undefined : "Schritt 2 von 4"}
+        title={returning ? t("Zimmer sortieren", "Rank the rooms") : flatTitle}
+        subtitle={returning ? undefined : t("Schritt 2 von 4", "Step 2 of 4")}
         onBack={onBack}
         step={returning ? undefined : 1}
+        flatId={flatId}
       />
       <Column className="flex-1 pt-5">
-        <h1 className="h3 text-ink">Welches Zimmer hättest du am liebsten?</h1>
+        <h1 className="h3 text-ink">{t("Welches Zimmer hättest du am liebsten?", "Which room would you like most?")}</h1>
         <p className="mt-2 text-ui-medium leading-relaxed text-muted">
-          Sortier die Zimmer nach deinem Wunsch. Wenn dir zwei gleich wichtig sind, verbinde sie mit dem
-          Gleichzeichen.
+          {t(
+            "Sortier die Zimmer nach deinem Wunsch. Wenn dir zwei gleich wichtig sind, verbinde sie mit dem Gleichzeichen.",
+            "Put the rooms in the order you like. If two matter equally to you, link them with the equals sign.",
+          )}
         </p>
 
         <ol className="mt-5">
           {ids.map((id, i) => {
             const room = byId.get(id);
             if (!room) return null;
-            const from = formatDate(room.availableFrom);
+            const from = formatDate(room.availableFrom, locale);
             const rank = ranksNow[id];
             return (
               <li key={id}>
@@ -144,7 +152,9 @@ export function RoomStep({
                       className="chip h-7 px-2.5 text-ui-smaller"
                     >
                       <Equal size={13} strokeWidth={2} />
-                      {tied[i] ? "Gleich wichtig" : "Gleich wichtig wie darüber?"}
+                      {tied[i]
+                        ? t("Gleich wichtig", "Equally important")
+                        : t("Gleich wichtig wie darüber?", "Equally important as the one above?")}
                     </button>
                   </div>
                 ) : null}
@@ -182,7 +192,7 @@ export function RoomStep({
                     <p className="truncate text-ui-medium font-semibold text-ink">{room.name}</p>
                     {room.rent ? (
                       <p className="text-ui-small text-ink">
-                        {euro(room.rent)} <span className="text-faint">warm</span>
+                        {euro(room.rent, locale)} <span className="text-faint">{t("warm", "incl. bills")}</span>
                       </p>
                     ) : null}
                     <div className="mt-1 flex flex-wrap gap-x-2.5 gap-y-0.5 text-ui-smaller text-muted">
@@ -193,7 +203,7 @@ export function RoomStep({
                       ) : null}
                       {from ? (
                         <span className="inline-flex items-center gap-1">
-                          <CalendarDays size={11} strokeWidth={1.75} /> ab {from}
+                          <CalendarDays size={11} strokeWidth={1.75} /> {t(`ab ${from}`, `from ${from}`)}
                         </span>
                       ) : null}
                     </div>
@@ -204,7 +214,7 @@ export function RoomStep({
                       className="icon-btn"
                       onClick={() => move(i, i - 1)}
                       disabled={i === 0}
-                      aria-label={`${room.name} nach oben`}
+                      aria-label={t(`${room.name} nach oben`, `Move ${room.name} up`)}
                     >
                       <ArrowUp size={16} strokeWidth={1.75} />
                     </button>
@@ -216,7 +226,7 @@ export function RoomStep({
                       className="icon-btn"
                       onClick={() => move(i, i + 1)}
                       disabled={i === ids.length - 1}
-                      aria-label={`${room.name} nach unten`}
+                      aria-label={t(`${room.name} nach unten`, `Move ${room.name} down`)}
                     >
                       <ArrowDown size={16} strokeWidth={1.75} />
                     </button>
@@ -231,7 +241,7 @@ export function RoomStep({
       <BottomBar>
         <button type="button" className="btn btn-cta btn-lg w-full" onClick={save} disabled={busy}>
           {busy ? <Spinner size={14} /> : null}
-          {returning ? "Speichern" : "Weiter zum Profil"}
+          {returning ? t("Speichern", "Save") : t("Weiter zum Profil", "On to your profile")}
         </button>
         {error ? <p className="mt-2 text-center text-ui-small text-red">{error}</p> : null}
       </BottomBar>
@@ -240,11 +250,12 @@ export function RoomStep({
 }
 
 function RoomNotes({ rooms }: { rooms: Room[] }) {
+  const t = useT();
   const notes = rooms.filter((r) => r.note);
   if (!notes.length) return null;
   return (
     <div className="mt-6 grid gap-2">
-      <p className="ui-label">Hinweise zu den Zimmern</p>
+      <p className="ui-label">{t("Hinweise zu den Zimmern", "Notes on the rooms")}</p>
       {notes.map((r) => (
         <p key={r.id} className="text-ui-small text-muted">
           <span className="font-semibold text-ink">{r.name}:</span> {r.note}
