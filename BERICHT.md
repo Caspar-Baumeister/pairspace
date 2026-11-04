@@ -133,11 +133,11 @@ Siehe README. Kurz: `npm run emulators`, `npm run seed`, `npm run dev`. Demo-Ver
 
 ## 5. Offen
 1. **Mail-Anmeldung einschalten:** Im Live-Projekt sind nur Google, Apple und anonym aktiv. Ohne den Anbieter "E-Mail/Passwort" scheitern die Registrierung per Mail und "Konto mit Passwort sichern" bei Bewerbern. Firebase Console, Authentication, Sign-in method, E-Mail/Passwort aktivieren (ohne Link-Anmeldung). Google-Login funktioniert schon.
-2. **Rechtliches (siehe 2.11), von dir zu prüfen:** PLZ 14057, Umsatzsteuer-ID und Kleinunternehmer fehlen bewusst. Eine Telefonnummer verlangen das Muster der Widerrufsbelehrung und Art. 246a EGBGB, sie fehlt noch. hello@joinpairspace.com muss Mails empfangen (Impressum, Antworten auf Bestätigungen). Mit PostHog den Vertrag zur Auftragsverarbeitung abschließen.
-3. **Stripe einrichten (Code fertig, siehe 2.9):**
-   - **Konto:** Ein eigenes Stripe-Konto für Pairspace anlegen und aktivieren (Geschäftsdaten, Bankkonto). Die Stripe-CLI auf dem Mac ist im Immotrim-Konto angemeldet, das sollte Pairspace nicht nutzen.
-   - **Setup-Skript:** Danach `node scripts/stripe-setup.mjs` mit dem Live Secret Key ausführen, dann `apphosting.yaml` committen und pushen.
-   - **Rechnungen:** Im Stripe Dashboard unter Settings, Emails die Belege einschalten.
+2. **Rechtliches (siehe 2.11), von dir zu prüfen:** PLZ 14057, Umsatzsteuer-ID und Kleinunternehmer fehlen bewusst. Eine Telefonnummer verlangen das Muster der Widerrufsbelehrung und Art. 246a EGBGB, sie fehlt noch. Kontakt und Antworten auf Mails gehen wie bei Immotrim an die Gmail-Adresse, joinpairspace.com hat kein Postfach. Mit PostHog den Vertrag zur Auftragsverarbeitung abschließen.
+3. **Stripe (live seit 04.11.2026 im Immotrim-Konto, das teilen ist so gewollt):**
+   - **Angelegt:** Produkt "Pairspace Basic" (prod_VZI981s8el9ood) mit `pairspace_basic_monthly` und `pairspace_basic_yearly`, Kundenportal bpc_1UY9Yx8VkHjOEZDpgBIzSajn, Webhook we_1UY9Yy8VkHjOEZDpb1KJWf8s auf /api/stripe/webhook, eigener Secret Key "pairspace". Beide Secrets liegen in Secret Manager und stehen in `apphosting.yaml`.
+   - **Geteiltes Konto:** Checkout und Kontoauszug zeigen Pairspace, Stripes eigene Belege und das Portal zeigen den Kontonamen immotrim. Der Pairspace-Webhook ignoriert Abos ohne `pairspace_`-Preis, der Immotrim-Webhook ignoriert Pairspace.
+   - **Offen:** Belege per Mail (Settings, Customer emails, "Successful payments") sind aus. Einschalten gilt fürs ganze Konto, also auch für Immotrim. In Stripe steht Gneisenaustraße 6a, im Impressum Dernburgstraße 7.
    - **Anwalt prüfen lassen:**
      - Der Zahlknopf in Stripe heißt bei einer Testphase womöglich "Testzeitraum starten" statt "Abonnieren". Ob das § 312j Abs. 3 BGB genügt, ist offen.
      - Nach dem ersten Jahr muss das Jahresabo für Verbraucher monatlich kündbar sein, mit anteiliger Erstattung (§ 309 Nr. 9 BGB). Das läuft heute von Hand über Stripe.
