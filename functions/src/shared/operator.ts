@@ -10,7 +10,8 @@ export const OPERATOR = {
   street: "Dernburgstraße 7",
   city: "14057 Berlin",
   country: { de: "Deutschland", en: "Germany" },
-  email: "hello@joinpairspace.com",
+  // Like Immotrim: joinpairspace.com has no mailbox, so contact and replies go to Gmail.
+  email: "caspar.baumeister.privat@gmail.com",
 } as const;
 
 /** Shown as "Stand" on every legal page and named in the contract confirmation. Update it whenever a text changes. */

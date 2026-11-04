@@ -3,8 +3,9 @@
 # The NEXT_PUBLIC values below are not secrets: Next.js inlines them into the
 # JavaScript that every visitor downloads. Firebase web config is public by
 # design, the security lives in firestore.rules and storage.rules.
-# Real secrets, such as the Resend API key, belong in Secret Manager and are
-# read by the Cloud Functions, never by this app.
+# Real secrets belong in Secret Manager: the Resend API key is read by the
+# Cloud Functions, the two Stripe secrets at the end by this app, at runtime
+# only.
 
 runConfig:
   minInstances: 0
@@ -51,12 +52,18 @@ env:
   #   availability:
   #     - BUILD
   #     - RUNTIME
-  # Stripe: STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET come from Secret
-  # Manager. `node scripts/stripe-setup.mjs` creates both and the Firebase CLI
-  # lists them at the end of this file. Without them /api/abo grants one free
-  # trial and nothing more.
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
     value: 1:865487163332:web:c15d2ca59a21af1fd7de91
     availability:
       - BUILD
+      - RUNTIME
+  # Stripe, from Secret Manager. `node scripts/stripe-setup.mjs` creates both.
+  # Without them /api/abo grants one free trial and nothing more.
+  - variable: STRIPE_SECRET_KEY
+    secret: STRIPE_SECRET_KEY
+    availability:
+      - RUNTIME
+  - variable: STRIPE_WEBHOOK_SECRET
+    secret: STRIPE_WEBHOOK_SECRET
+    availability:
       - RUNTIME

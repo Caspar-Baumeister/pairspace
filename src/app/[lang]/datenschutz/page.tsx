@@ -669,13 +669,13 @@ export default async function PrivacyPage({ params }: Props) {
               <p>
                 {de ? (
                   <>
-                    Schreib dafür einfach eine Mail an <a href="mailto:hello@joinpairspace.com">hello@joinpairspace.com</a>.
+                    Schreib dafür einfach eine Mail an <MailLink />.
                     Geht es um Daten, die der Vermieter für seine Auswahl nutzt, wende dich auch an ihn. Erreichst du ihn
                     nicht, leiten wir dein Anliegen weiter.
                   </>
                 ) : (
                   <>
-                    Just send an email to <a href="mailto:hello@joinpairspace.com">hello@joinpairspace.com</a>. If it is
+                    Just send an email to <MailLink />. If it is
                     about data the landlord uses for their choice, contact them as well. If you cannot reach them, we
                     will pass your request on.
                   </>

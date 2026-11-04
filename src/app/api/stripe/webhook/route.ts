@@ -43,6 +43,10 @@ export async function POST(request: Request) {
 
   try {
     const sub = await stripe().subscriptions.retrieve(subscriptionId);
+    // The Stripe account is shared with Immotrim, its subscriptions are not ours.
+    if (!sub.items.data.some((item) => item.price.lookup_key?.startsWith("pairspace_"))) {
+      return NextResponse.json({ received: true });
+    }
     const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
     const uid = sub.metadata?.uid || (await uidForCustomer(customerId));
     if (!uid) {

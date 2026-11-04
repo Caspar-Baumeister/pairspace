@@ -10,11 +10,12 @@
  *   node scripts/stripe-setup.mjs
  *
  * The secret key is asked for without echo and goes straight to Secret
- * Manager, it is never written to a file. Then commit apphosting.yaml (the
- * Firebase CLI adds the two secrets there) and push.
+ * Manager, it is never written to a file. apphosting.yaml already references
+ * both secrets, so a push rolls them out.
  */
 import { spawnSync } from "node:child_process";
 import readline from "node:readline";
+import { Writable } from "node:stream";
 
 import Stripe from "stripe";
 
@@ -35,9 +36,19 @@ const EVENTS = [
 ];
 
 function ask(question, hidden = false) {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true });
-  if (hidden) rl._writeToOutput = (s) => rl.output.write(s.startsWith(question) ? s : "");
-  return new Promise((resolve) => rl.question(question, (a) => (rl.close(), hidden && process.stdout.write("\n"), resolve(a.trim()))));
+  // Overriding rl._writeToOutput no longer hides input on Node 24, so a hidden
+  // answer goes through an output stream that drops everything after the prompt.
+  let muted = false;
+  const output = new Writable({
+    write(chunk, encoding, done) {
+      if (!muted) process.stdout.write(chunk, encoding);
+      done();
+    },
+  });
+  const rl = readline.createInterface({ input: process.stdin, output, terminal: true });
+  process.stdout.write(question);
+  muted = hidden;
+  return new Promise((resolve) => rl.question("", (a) => (rl.close(), hidden && process.stdout.write("\n"), resolve(a.trim()))));
 }
 
 function setSecret(name, value) {
@@ -55,15 +66,19 @@ const stripe = new Stripe(key);
 
 const account = await stripe.accounts.retrieveCurrent();
 console.log(`Stripe account ${account.settings?.dashboard?.display_name ?? account.id}, ${live ? "LIVE" : "test"} mode`);
-if (account.settings?.dashboard?.display_name?.toLowerCase().includes("immotrim")) {
-  const go = await ask("This is the Immotrim account. Continue anyway? (y/N) ");
-  if (go.toLowerCase() !== "y") process.exit(1);
-}
+// Sharing the Immotrim account is fine (Caspar, 04.11.2026): Pairspace has its
+// own product, portal configuration and webhook, and ignores Immotrim's events.
 
 // 1. Product and prices
 const products = await stripe.products.list({ limit: 100, active: true });
 let product = products.data.find((p) => p.metadata?.app === APP);
+// The account may be shared (Immotrim), so card statements name Pairspace.
+const STATEMENT = "PAIRSPACE";
+if (product && product.statement_descriptor !== STATEMENT) {
+  product = await stripe.products.update(product.id, { statement_descriptor: STATEMENT });
+}
 product ??= await stripe.products.create({
+  statement_descriptor: STATEMENT,
   name: "Pairspace Basic",
   description: "Unbegrenzte Wohnungen, Matching Graph und beste Gruppen.",
   metadata: { app: APP },
@@ -158,6 +173,5 @@ if (webhookSecret) setSecret("STRIPE_WEBHOOK_SECRET", webhookSecret);
 
 console.log(`
 Done. Next:
-  1. git diff apphosting.yaml   (the two secrets should be listed there)
-  2. commit and push, App Hosting picks them up with the next rollout
-  3. Stripe Dashboard, Settings, Emails: turn on receipts and invoice mails`);
+  1. apphosting.yaml lists both secrets already, push to roll them out
+  2. Stripe Dashboard, Settings, Emails: turn on receipts and invoice mails`);

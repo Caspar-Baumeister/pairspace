@@ -2,6 +2,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { Resend } from "resend";
 
 import { db, isEmulator } from "./admin";
+import { OPERATOR } from "./shared/operator";
 
 const FROM = process.env.MAIL_FROM ?? "Pairspace <hello@joinpairspace.com>";
 
@@ -131,7 +132,8 @@ export async function send(mail: Mail): Promise<boolean> {
       {
         from: FROM,
         to: mail.to,
-        replyTo: mail.replyTo,
+        // Nobody reads hello@, so every answer goes to Caspar unless the mail names someone else.
+        replyTo: mail.replyTo ?? OPERATOR.email,
         subject: mail.subject,
         html: render(mail),
         text: plainText(mail),
