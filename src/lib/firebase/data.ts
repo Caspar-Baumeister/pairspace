@@ -115,13 +115,19 @@ export function useContact(flatId: string | null | undefined, uid: string | null
 
 /* -------------------------------------------------------------- landlord */
 
-export async function ensureLandlord(user: User, name?: string): Promise<void> {
+/** The language of the page, set on <html lang> by the [lang] layout. */
+function pageLocale(): Locale {
+  return typeof document !== "undefined" && document.documentElement.lang === "en" ? "en" : "de";
+}
+
+/** Creates or refreshes the landlord doc. `locale` decides the language of their mails. */
+export async function ensureLandlord(user: User, name?: string, locale: Locale = pageLocale()): Promise<void> {
   const { db } = firebase();
   const ref = doc(db, "landlords", user.uid);
   const snap = await getDoc(ref);
   const now = Date.now();
   if (snap.exists()) {
-    await updateDoc(ref, { email: user.email, updatedAt: now });
+    await updateDoc(ref, { email: user.email, locale, updatedAt: now });
     return;
   }
   const landlord: Omit<Landlord, "subscription"> = {
@@ -132,13 +138,14 @@ export async function ensureLandlord(user: User, name?: string): Promise<void> {
     photo: null,
     createdAt: now,
     updatedAt: now,
+    locale,
   };
   await setDoc(ref, landlord);
 }
 
 export async function updateLandlord(uid: string, patch: Partial<Pick<Landlord, "name" | "about" | "photo">>) {
   const { db } = firebase();
-  await updateDoc(doc(db, "landlords", uid), { ...patch, updatedAt: Date.now() });
+  await updateDoc(doc(db, "landlords", uid), { ...patch, locale: pageLocale(), updatedAt: Date.now() });
 }
 
 /* ------------------------------------------------------------------ flat */
@@ -188,20 +195,26 @@ export async function deleteFlat(flatId: string) {
   await deleteDoc(doc(db, "flats", flatId));
 }
 
-/** Ends the search: deletes every application, ballot and contact of the flat. */
+/**
+ * Ends the search: deletes every application, ballot and contact of the flat.
+ * The function onApplicantDeleted then removes the photos in Storage.
+ */
 export async function deleteApplications(flatId: string): Promise<number> {
   const { db } = firebase();
   const [applicants, ballots] = await Promise.all([
     getDocs(collection(db, "flats", flatId, "applicants")),
     getDocs(collection(db, "flats", flatId, "ballots")),
   ]);
-  const batch = writeBatch(db);
-  applicants.docs.forEach((d) => {
-    batch.delete(doc(db, "flats", flatId, "applicants", d.id, "private", "contact"));
-    batch.delete(d.ref);
-  });
-  ballots.docs.forEach((d) => batch.delete(d.ref));
-  await batch.commit();
+  const refs = [
+    ...applicants.docs.flatMap((d) => [doc(db, "flats", flatId, "applicants", d.id, "private", "contact"), d.ref]),
+    ...ballots.docs.map((d) => d.ref),
+  ];
+  // A batch takes at most 500 writes.
+  for (let i = 0; i < refs.length; i += 450) {
+    const batch = writeBatch(db);
+    refs.slice(i, i + 450).forEach((ref) => batch.delete(ref));
+    await batch.commit();
+  }
   return applicants.size;
 }
 
@@ -249,6 +262,16 @@ export async function saveContact(flatId: string, uid: string, contact: Omit<App
   });
 }
 
+/** Switches the "new people to rate" mails on or off, and keeps their language current. */
+export async function setNotify(flatId: string, uid: string, notify: boolean, locale: Locale) {
+  const { db } = firebase();
+  await updateDoc(doc(db, "flats", flatId, "applicants", uid, "private", "contact"), {
+    notify,
+    locale,
+    updatedAt: Date.now(),
+  });
+}
+
 export async function saveVote(flatId: string, uid: string, other: string, vote: Vote | null) {
   const { db } = firebase();
   const ref = doc(db, "flats", flatId, "ballots", uid);
@@ -266,6 +289,11 @@ export async function saveRoomRanks(flatId: string, uid: string, roomRanks: Reco
   await setDoc(ref, { uid, votes: snap.data()?.votes ?? {}, roomRanks, updatedAt: Date.now() });
 }
 
+/**
+ * Deletes the application of this applicant. Contact and ballot go right
+ * away, the function onApplicantDeleted removes the photos and the ratings
+ * the others gave this person.
+ */
 export async function withdrawApplication(flatId: string, uid: string) {
   const { db } = firebase();
   await Promise.all([

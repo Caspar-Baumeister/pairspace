@@ -5,6 +5,7 @@
   "engines": { "node": "22" },
   "scripts": {
     "build": "tsc",
+    "test:triggers": "tsc && node ../scripts/test-triggers.mjs",
     "serve": "npm run build && firebase emulators:start --only functions",
     "deploy": "npm run build && firebase deploy --only functions"
   },

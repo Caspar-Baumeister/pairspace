@@ -50,6 +50,21 @@ const checks = [
   ["Feedback im Namen eines anderen", await patch(`feedback/rules-x-${Date.now()}`, feedback("someone"), Object.keys(feedback("someone")), "anon1"), 403],
   ["Feedback ohne Login", await fetch(`${BASE}/feedback/rules-anon`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ fields: feedback("anon1") }) }).then((r) => r.status), 403],
   ["Jemand liest Feedback", await get("feedback/rules-read", "anon1"), 403],
+  // Mail bookkeeping (who was told, when), written only by the functions.
+  ["Bewerber liest eigenen Mail-Vermerk", await get("flats/demo2wg8/applicants/demo-lena/server/mail", "demo-lena"), 403],
+  ["Bewerber setzt eigenen Mail-Vermerk zurück", await patch("flats/demo2wg8/applicants/demo-lena/server/mail", { lastNotifiedAt: { integerValue: "0" } }, ["lastNotifiedAt"], "demo-lena"), 403],
+  ["Vermieter liest Mail-Vermerk", await get("flats/demo2wg8/applicants/demo-lena/server/mail", landlordUid, "password"), 403],
+  ["Vermieter schreibt Mail-Vermerk", await patch("flats/demo2wg8/applicants/demo-lena/server/mail", { landlordMailedAt: { integerValue: "1" } }, ["landlordMailedAt"], landlordUid, "password"), 403],
+  ["Bewerber speichert Sprache im eigenen Kontakt", await patch("flats/demo2wg8/applicants/demo-lena/private/contact", { locale: { stringValue: "de" } }, ["locale"], "demo-lena"), 200],
+  ["Bewerber schaltet fremde Benachrichtigungen ab", await patch("flats/demo2wg8/applicants/demo-lena/private/contact", { notify: { booleanValue: false } }, ["notify"], "anon1"), 403],
+  ["Vermieter speichert seine Sprache", await patch(`landlords/${landlordUid}`, { locale: { stringValue: "de" } }, ["locale"], landlordUid, "password"), 200],
+  // Cancellations, withdrawals and contracts, written and read only by the server (/api/vertrag, syncSubscription).
+  ["Jemand liest eine Kündigung", await get("contractRequests/rules-read", "anon1"), 403],
+  ["Vermieter liest eine Kündigung", await get("contractRequests/rules-read", landlordUid, "password"), 403],
+  ["Jemand schreibt eine Kündigung direkt", await patch(`contractRequests/rules-${Date.now()}`, { kind: { stringValue: "cancel" } }, ["kind"], "anon1"), 403],
+  ["Kündigung ohne Login direkt", await fetch(`${BASE}/contractRequests/rules-anon`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ fields: { kind: { stringValue: "cancel" } } }) }).then((r) => r.status), 403],
+  ["Vermieter liest Verträge", await get("contracts/sub_rules", landlordUid, "password"), 403],
+  ["Vermieter legt sich einen Vertrag an", await patch("contracts/sub_rules", { uid: { stringValue: landlordUid } }, ["uid"], landlordUid, "password"), 403],
 ];
 let ok = true;
 for (const [name, got, want] of checks) {

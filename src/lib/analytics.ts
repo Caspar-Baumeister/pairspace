@@ -47,6 +47,8 @@ export function startAnalytics(locale: Locale) {
     disable_session_recording: true,
     disable_surveys: true,
     advanced_disable_flags: true,
+    // Nothing that is read from the device beyond the request itself (§ 25 TDDDG).
+    property_denylist: ["$screen_height", "$screen_width", "$viewport_height", "$viewport_width"],
   });
   posthog.register({ app: "pairspace", locale });
   ready = true;

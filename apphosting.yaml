@@ -51,6 +51,10 @@ env:
   #   availability:
   #     - BUILD
   #     - RUNTIME
+  # Stripe: STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET come from Secret
+  # Manager. `node scripts/stripe-setup.mjs` creates both and the Firebase CLI
+  # lists them at the end of this file. Without them /api/abo grants one free
+  # trial and nothing more.
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
     value: 1:865487163332:web:c15d2ca59a21af1fd7de91
     availability:

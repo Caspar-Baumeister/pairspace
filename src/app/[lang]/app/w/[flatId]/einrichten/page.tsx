@@ -2,7 +2,8 @@
 
 import { ArrowRight, FilePlus2, ShieldCheck } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 import { PaneBody, PaneHeader, useShell } from "@/components/app/AppShell";
 import { PricingCards } from "@/components/app/PricingCards";
@@ -13,9 +14,9 @@ import { StepHeader } from "@/components/flat/StepHeader";
 import { ErrorText } from "@/components/ui/Field";
 import { Spinner } from "@/components/ui/Spinner";
 import { track } from "@/lib/analytics";
-import { startSubscription } from "@/lib/billing";
+import { confirmCheckout, startSubscription } from "@/lib/billing";
 import { updateFlat } from "@/lib/firebase/data";
-import { useLocalePath, useT } from "@/lib/i18n/client";
+import { useLocale, useLocalePath, useT } from "@/lib/i18n/client";
 import { BASIC, isActive } from "@/lib/plans";
 
 import { useCurrentFlat } from "../FlatProvider";
@@ -28,11 +29,17 @@ export default function SetupPage() {
   const flat = useCurrentFlat();
   const { landlord, flats } = useShell();
   const t = useT();
+  const locale = useLocale();
   const lp = useLocalePath();
-  const [step, setStep] = useState<Step>(flat.status === "live" ? "live" : "rooms");
+  const router = useRouter();
+  const params = useSearchParams();
+  const returning = params.get("checkout");
+  const [step, setStep] = useState<Step>(flat.status === "live" ? "live" : returning ? "plan" : "rooms");
   const [error, setError] = useState("");
   const [publishing, setPublishing] = useState(false);
+  const handled = useRef(false);
   const subscribed = isActive(landlord?.subscription);
+  const setupPath = lp(`/app/w/${flat.id}/einrichten`);
 
   const publish = async () => {
     setPublishing(true);
@@ -47,6 +54,26 @@ export default function SetupPage() {
       setPublishing(false);
     }
   };
+
+  // Back from Stripe Checkout: confirm the plan, then put the link live.
+  useEffect(() => {
+    if (!returning || handled.current) return;
+    handled.current = true;
+    router.replace(setupPath, { scroll: false });
+    if (returning === "cancel") return;
+    setPublishing(true);
+    confirmCheckout(returning)
+      .then((s) => {
+        track("plan_started", { interval: s.interval, trial: s.status === "trialing" });
+        return publish();
+      })
+      .catch((e) => {
+        console.error(e);
+        setPublishing(false);
+        setError(t("Dein Abo konnte nicht bestätigt werden. Schau unter Abo nach oder versuch es nochmal.", "We couldn't confirm your subscription. Check under Subscription or try again."));
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [returning]);
 
   const after = (s: Step) => {
     const next = ORDER[ORDER.indexOf(s) + 1];
@@ -108,13 +135,25 @@ export default function SetupPage() {
                   `Your link goes live as soon as the free trial starts. You pay nothing for the first ${BASIC.trialDays} days and can cancel anytime.`,
                 )}
               />
+              {publishing ? (
+                <p className="mb-4 flex items-center gap-2 text-muted">
+                  <Spinner size={14} /> {t("Abo wird bestätigt und dein Link freigeschaltet", "Confirming your plan and unlocking your link")}
+                </p>
+              ) : null}
               <PricingCards
+                withConsent
                 onChoose={async (interval) => {
                   setError("");
                   try {
-                    const started = await startSubscription(interval);
-                    track("plan_started", { interval, trial: started.status === "trialing" });
-                    await publish();
+                    const result = await startSubscription(interval, { locale, returnPath: setupPath, consent: true });
+                    if (result.url) {
+                      window.location.assign(result.url);
+                      await new Promise(() => {});
+                    }
+                    if (result.subscription) {
+                      track("plan_started", { interval, trial: result.subscription.status === "trialing" });
+                      await publish();
+                    }
                   } catch (e) {
                     console.error(e);
                     setError(t("Das hat nicht geklappt. Bitte versuch es nochmal.", "That didn't work. Please try again."));
@@ -124,8 +163,8 @@ export default function SetupPage() {
               <p className="mt-4 flex items-center gap-2 text-ui-smaller text-faint">
                 <ShieldCheck size={13} strokeWidth={1.75} />{" "}
                 {t(
-                  "Prototyp: Die Testphase startet ohne Zahlungsdaten. Stripe kommt später.",
-                  "Prototype: the free trial starts without payment details. Stripe comes later.",
+                  `Sichere Zahlung über Stripe. In den ${BASIC.trialDays} Tagen Testphase zahlst du nichts, kündigen geht jederzeit in der App.`,
+                  `Secure payment with Stripe. You pay nothing during the ${BASIC.trialDays} day trial and can cancel anytime in the app.`,
                 )}
               </p>
               <div className="mt-3">

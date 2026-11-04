@@ -83,8 +83,8 @@ export default function FlatSettingsPage() {
           <Setting
             name={t("Suche abschließen", "Finish your search")}
             description={t(
-              "Löscht alle Profile, Bewertungen und Kontaktdaten der Bewerber dieser Wohnung. Danach kannst du sie für die nächsten Zimmer neu starten.",
-              "Deletes all applicant profiles, ratings and contact details for this flat. Then you can start fresh for the next rooms.",
+              "Löscht alle Profile, Fotos, Bewertungen und Kontaktdaten der Bewerber dieser Wohnung. Danach kannst du sie für die nächsten Zimmer neu starten.",
+              "Deletes all applicant profiles, photos, ratings and contact details for this flat. Then you can start fresh for the next rooms.",
             )}
           >
             <button
@@ -111,8 +111,8 @@ export default function FlatSettingsPage() {
           <Setting
             name={t("Wohnung löschen", "Delete flat")}
             description={t(
-              "Entfernt die Wohnung samt Link. Lösch vorher die Bewerbungen.",
-              "Removes the flat and its link. Delete the applications first.",
+              "Entfernt die Wohnung samt Link, Zimmerfotos und allen Bewerbungen.",
+              "Removes the flat with its link, room photos and all applications.",
             )}
           >
             <button

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -149,6 +150,22 @@ export function SignIn() {
           >
             {mode === "signup" ? t("Anmelden", "Sign in") : t("Konto erstellen", "Create account")}
           </button>
+        </p>
+
+        <p className="mt-5 border-t border-line pt-4 text-center text-ui-smaller leading-relaxed text-faint">
+          {t("Mit der Anmeldung akzeptierst du die ", "By signing in, you accept the ")}
+          <Link href={lp("/agb")} target="_blank" className="text-muted underline-offset-2 hover:text-ink hover:underline">
+            {t("AGB", "terms")}
+          </Link>
+          {t(". Wie wir mit deinen Daten umgehen, steht in der ", ". How we handle your data is explained in the ")}
+          <Link
+            href={lp("/datenschutz")}
+            target="_blank"
+            className="text-muted underline-offset-2 hover:text-ink hover:underline"
+          >
+            {t("Datenschutzerklärung", "privacy policy")}
+          </Link>
+          .
         </p>
       </div>
     </div>

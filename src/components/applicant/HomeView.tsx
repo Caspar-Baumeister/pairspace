@@ -2,6 +2,7 @@
 
 import {
   BedDouble,
+  Bell,
   ChevronRight,
   CircleCheck,
   Mail,
@@ -14,11 +15,12 @@ import {
 import { useMemo, useState } from "react";
 
 import { FeedbackButton } from "@/components/feedback/Feedback";
+import { Toggle } from "@/components/ui/Field";
 import { Spinner } from "@/components/ui/Spinner";
 import { deletePhoto } from "@/lib/firebase/storage";
-import { saveVote, withdrawApplication } from "@/lib/firebase/data";
+import { saveVote, setNotify, withdrawApplication } from "@/lib/firebase/data";
 import type { T } from "@/lib/i18n";
-import { useT } from "@/lib/i18n/client";
+import { useLocale, useT } from "@/lib/i18n/client";
 import type { Applicant, ApplicantContact, Flat, Vote } from "@/lib/types";
 import { Column, FlowHeader } from "./FlowShell";
 import { PrivacyNote } from "./Intro";
@@ -161,8 +163,12 @@ export function HomeView({
   onWithdrawn: () => void;
 }) {
   const t = useT();
+  const locale = useLocale();
   const serial = useSerial();
   const [local, setLocal] = useState<Record<string, Vote>>({});
+  // Shown right away, the snapshot catches up a moment later.
+  const [notifyLocal, setNotifyLocal] = useState<boolean | null>(null);
+  const notify = notifyLocal ?? contact?.notify ?? false;
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -180,6 +186,16 @@ export function HomeView({
     );
   };
 
+  const toggleNotify = (on: boolean) => {
+    setNotifyLocal(on);
+    setError("");
+    setNotify(flat.id, uid, on, locale).catch(() => {
+      setNotifyLocal(!on);
+      setError(t("Die Einstellung konnte nicht gespeichert werden.", "The setting could not be saved."));
+    });
+  };
+
+  // The server removes the rest: leftover photos and how others rated you.
   const withdraw = async () => {
     setBusy(true);
     try {
@@ -187,7 +203,7 @@ export function HomeView({
       await Promise.all((me.photos ?? []).map((p) => deletePhoto(p.path)));
       onWithdrawn();
     } catch {
-      setError(t("Zurückziehen hat nicht geklappt. Versuch es nochmal.", "Withdrawing did not work. Try again."));
+      setError(t("Löschen hat nicht geklappt. Versuch es nochmal.", "Deleting did not work. Try again."));
       setBusy(false);
       setConfirm(false);
     }
@@ -264,6 +280,21 @@ export function HomeView({
           />
         </div>
 
+        {contact?.email ? (
+          <div className="card mt-4 flex items-center gap-3 p-3">
+            <Bell size={16} strokeWidth={1.75} className="shrink-0 text-faint" />
+            <div className="min-w-0 flex-1">
+              <p className="text-ui-small text-ink">{t("Mail bei neuen Mitbewerbern", "Email me about new applicants")}</p>
+              <p className="mt-0.5 text-ui-smaller text-faint">
+                {notify
+                  ? t(`Höchstens eine am Tag an ${contact.email}`, `At most one a day to ${contact.email}`)
+                  : t("Aus. Schau einfach ab und zu vorbei.", "Off. Just check back now and then.")}
+              </p>
+            </div>
+            <Toggle checked={notify} onChange={toggleNotify} label={t("Mail bei neuen Mitbewerbern", "Email me about new applicants")} />
+          </div>
+        ) : null}
+
         {sorted.length ? (
           <section className="mt-8">
             <p className="ui-label">{t("Deine Einschätzungen", "Your ratings")}</p>
@@ -295,18 +326,18 @@ export function HomeView({
           {confirm ? (
             <div className="rounded-xl border border-line bg-base-10 p-4">
               <p className="text-ui-medium font-semibold text-ink">
-                {t("Bewerbung wirklich zurückziehen?", "Really withdraw your application?")}
+                {t("Bewerbung wirklich löschen?", "Delete your application?")}
               </p>
               <p className="mt-1 text-ui-small text-muted">
                 {t(
-                  "Dein Profil, deine Fotos, deine Einschätzungen und deine Kontaktdaten für diese Wohnung werden gelöscht.",
-                  "Your profile, photos, ratings and contact details for this flat will be deleted.",
+                  "Dein Profil, deine Fotos, deine Einschätzungen und deine Kontaktdaten für diese Wohnung werden gelöscht, auch wie die anderen dich eingeschätzt haben. Das lässt sich nicht rückgängig machen.",
+                  "Your profile, photos, ratings and contact details for this flat will be deleted, along with how the others rated you. This can't be undone.",
                 )}
               </p>
               <div className="mt-4 flex gap-2">
                 <button type="button" className="btn btn-danger" onClick={withdraw} disabled={busy}>
                   {busy ? <Spinner size={13} /> : <Trash2 size={14} strokeWidth={1.75} />}
-                  {t("Ja, zurückziehen", "Yes, withdraw")}
+                  {t("Ja, löschen", "Yes, delete")}
                 </button>
                 <button type="button" className="btn btn-ghost" onClick={() => setConfirm(false)} disabled={busy}>
                   {t("Abbrechen", "Cancel")}
@@ -316,7 +347,7 @@ export function HomeView({
           ) : (
             <button type="button" className="btn btn-ghost text-red hover:text-red" onClick={() => setConfirm(true)}>
               <Trash2 size={14} strokeWidth={1.75} />
-              {t("Bewerbung zurückziehen", "Withdraw application")}
+              {t("Bewerbung löschen", "Delete my application")}
             </button>
           )}
         </div>

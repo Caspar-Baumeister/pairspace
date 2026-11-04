@@ -8,7 +8,7 @@ import { Spinner } from "@/components/ui/Spinner";
 import { track } from "@/lib/analytics";
 import { authErrorMessage, useAuth } from "@/lib/firebase/auth";
 import { saveContact } from "@/lib/firebase/data";
-import { useT } from "@/lib/i18n/client";
+import { useLocale, useT } from "@/lib/i18n/client";
 import type { ApplicantContact } from "@/lib/types";
 import { BottomBar, Column, FlowHeader } from "./FlowShell";
 
@@ -45,6 +45,7 @@ export function ContactStep({
   onBack?: () => void;
 }) {
   const t = useT();
+  const locale = useLocale();
   const { user, isAnonymous, linkGoogle, linkEmail } = useAuth();
   const [email, setEmail] = useState(contact?.email ?? user?.email ?? "");
   const [phone, setPhone] = useState(contact?.phone ?? "");
@@ -83,7 +84,7 @@ export function ContactStep({
     setLinkError("");
     setBusy(true);
     try {
-      await saveContact(flatId, uid, { email: mail, phone: phone.trim(), notify });
+      await saveContact(flatId, uid, { email: mail, phone: phone.trim(), notify, locale });
     } catch {
       setError(t("Speichern hat nicht geklappt. Prüf deine Verbindung.", "Saving did not work. Check your connection."));
       setBusy(false);

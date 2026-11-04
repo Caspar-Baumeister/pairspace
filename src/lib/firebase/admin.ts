@@ -28,3 +28,22 @@ export function adminDb(): Firestore {
 export function adminAuth(): Auth {
   return getAuth(adminApp());
 }
+
+export interface Caller {
+  uid: string;
+  email?: string;
+  name?: string;
+}
+
+/** The landlord behind `Authorization: Bearer <id token>`, or null. Anonymous applicants never count. */
+export async function landlordFromRequest(request: Request): Promise<Caller | null> {
+  const token = request.headers.get("authorization")?.replace(/^Bearer /, "");
+  if (!token) return null;
+  try {
+    const decoded = await adminAuth().verifyIdToken(token);
+    if (decoded.firebase.sign_in_provider === "anonymous") return null;
+    return { uid: decoded.uid, email: decoded.email, name: decoded.name as string | undefined };
+  } catch {
+    return null;
+  }
+}

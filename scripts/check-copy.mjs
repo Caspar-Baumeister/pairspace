@@ -6,7 +6,8 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-const ROOT = "src";
+// The site and the Cloud Functions, whose mails and shared legal texts people read too.
+const ROOTS = ["src", "functions/src"];
 const findings = [];
 
 function walk(dir) {
@@ -29,7 +30,7 @@ function check(file) {
   });
 }
 
-walk(ROOT);
+ROOTS.forEach(walk);
 if (findings.length) {
   console.error(`Dashes in user facing copy:\n${findings.join("\n")}`);
   process.exit(1);

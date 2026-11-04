@@ -1,6 +1,7 @@
 "use client";
 
 import { BedDouble, ListOrdered, MapPin, ShieldCheck, Users, UserRound, type LucideIcon } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { RoomCard } from "@/components/flat/RoomCard";
@@ -9,7 +10,7 @@ import { LogoMark } from "@/components/ui/Logo";
 import { Spinner } from "@/components/ui/Spinner";
 import { track } from "@/lib/analytics";
 import { translator, type Locale } from "@/lib/i18n";
-import { useLocale, useT } from "@/lib/i18n/client";
+import { useLocale, useLocalePath, useT } from "@/lib/i18n/client";
 import type { Label } from "@/lib/options";
 import { euro } from "@/lib/plans";
 import type { Flat } from "@/lib/types";
@@ -53,16 +54,22 @@ export function rentRange(flat: Flat, locale: Locale = "de"): string | null {
   return min === max ? t(`${lo} warm`, `${lo} incl. bills`) : t(`${lo} bis ${hi} warm`, `${lo} to ${hi} incl. bills`);
 }
 
+/** Short version of the Datenschutzerklärung, keep both in step. */
 export function PrivacyNote() {
   const t = useT();
+  const lp = useLocalePath();
   return (
     <div className="flex gap-3 rounded-xl border border-accent-line bg-accent-soft p-4">
       <ShieldCheck size={18} strokeWidth={1.75} className="mt-0.5 shrink-0 text-accent" />
       <p className="text-ui-small leading-relaxed text-ink">
         {t(
-          "Deine Bewertungen, Zimmerwünsche und Kontaktdaten sieht nur der Vermieter. Andere Bewerber sehen nur dein Profil, und nur für diese Wohnung. Wenn die Suche vorbei ist, wird deine Bewerbung gelöscht.",
-          "Only the landlord sees your ratings, room choices and contact details. Other applicants only see your profile, and only for this flat. Once the search is over, your application is deleted.",
+          "Deine Bewertungen, Zimmerwünsche und Kontaktdaten sieht nur der Vermieter. Dein Profil sehen außerdem die anderen Bewerber dieser Wohnung. Du kannst deine Bewerbung jederzeit löschen. Mehr in der ",
+          "Only the landlord sees your ratings, room choices and contact details. The other applicants for this flat also see your profile. You can delete your application at any time. More in the ",
         )}
+        <Link href={lp("/datenschutz")} target="_blank" className="text-accent hover:underline">
+          {t("Datenschutzerklärung", "privacy policy")}
+        </Link>
+        .
       </p>
     </div>
   );
@@ -79,6 +86,7 @@ export function Intro({
 }) {
   const t = useT();
   const locale = useLocale();
+  const lp = useLocalePath();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const cover = flat.rooms.find((r) => r.photo)?.photo?.url ?? null;
@@ -225,6 +233,13 @@ export function Intro({
                 "Kein Download, kein Passwort. Dauert etwa fünf Minuten.",
                 "No download, no password. Takes about five minutes.",
               )}
+            </p>
+            <p className="mt-1 text-center text-ui-smaller text-faint">
+              {t("Mit dem Start akzeptierst du die ", "By starting, you accept the ")}
+              <Link href={lp("/agb")} target="_blank" className="text-muted hover:text-ink hover:underline">
+                {t("AGB", "terms")}
+              </Link>
+              .
             </p>
           </>
         )}

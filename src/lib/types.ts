@@ -37,7 +37,9 @@ export interface Subscription {
   status: SubscriptionStatus;
   trialEndsAt: number | null;
   currentPeriodEnd: number;
-  /** "prototype" until Stripe is wired up, then "stripe". */
+  /** Ends with the current period instead of renewing. */
+  cancelAtPeriodEnd?: boolean;
+  /** "prototype" for the free trials before Stripe, "stripe" since. */
   provider: "prototype" | "stripe";
   stripeCustomerId?: string;
 }
@@ -51,6 +53,8 @@ export interface Landlord {
   createdAt: number;
   updatedAt: number;
   subscription?: Subscription;
+  /** Language of the app the landlord last used, for their mails. Missing means "de". */
+  locale?: "de" | "en";
 }
 
 /* ---------------------------------------------------------------------- flat */
@@ -127,6 +131,8 @@ export interface ApplicantContact {
   /** Mail me when new applicants join or the landlord gets in touch. */
   notify: boolean;
   updatedAt: number;
+  /** Language for these mails, the one the applicant used last. Missing means "de". */
+  locale?: "de" | "en";
 }
 
 /* -------------------------------------------------------------------- ballot */

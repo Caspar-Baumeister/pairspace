@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Logo } from "@/components/ui/Logo";
 import { track } from "@/lib/analytics";
 import { useLocalePath, useT } from "@/lib/i18n/client";
+import { CONTRACT_BUTTONS, LEGAL_PAGES } from "@/lib/legal";
 
 import { LanguageSwitch } from "./LanguageSwitch";
 
@@ -49,8 +50,21 @@ export function SiteFooter() {
         <Link href={lp("/anmelden")} className="hover:text-ink">
           {t("Anmelden", "Sign in")}
         </Link>
+        {LEGAL_PAGES.map((page) => (
+          <Link key={page.path} href={lp(page.path)} className="hover:text-ink">
+            {t(page.de, page.en)}
+          </Link>
+        ))}
         <div className="flex-1" />
         <LanguageSwitch source="footer" />
+      </div>
+      {/* § 312k and § 356a BGB: always there, readable, no sign in needed. */}
+      <div className="mx-auto flex max-w-[1200px] flex-wrap gap-x-5 gap-y-2 px-4 pb-8 text-ui-small md:px-6">
+        {CONTRACT_BUTTONS.map((button) => (
+          <Link key={button.path} href={lp(button.path)} className="text-muted underline underline-offset-2 hover:text-ink">
+            {t(button.de, button.en)}
+          </Link>
+        ))}
       </div>
     </footer>
   );

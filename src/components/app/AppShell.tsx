@@ -26,6 +26,7 @@ import { useAuth } from "@/lib/firebase/auth";
 import { useLandlord, useMyFlats } from "@/lib/firebase/data";
 import { basePath, type T } from "@/lib/i18n";
 import { useLocalePath, useT } from "@/lib/i18n/client";
+import { LEGAL_PAGES } from "@/lib/legal";
 import { isActive } from "@/lib/plans";
 import type { Flat, Landlord } from "@/lib/types";
 
@@ -188,6 +189,13 @@ export function AppShell({ children }: { children: ReactNode }) {
               <LogOut {...SMALL} />
             </button>
           </div>
+        </div>
+        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 px-1.5 pb-0.5 text-[11px] text-faint">
+          {LEGAL_PAGES.map((page) => (
+            <Link key={page.path} href={lp(page.path)} target="_blank" className="hover:text-muted">
+              {t(page.de, page.en)}
+            </Link>
+          ))}
         </div>
       </div>
     </nav>
