@@ -1,6 +1,5 @@
 "use client";
 
-import { Lock } from "lucide-react";
 import Link from "next/link";
 
 import { PaneBody, PaneHeader, useShell } from "@/components/app/AppShell";
@@ -21,7 +20,7 @@ export default function ApplicantsPage() {
   if (sub && !isActive(sub) && sub.status !== "past_due") {
     return (
       <>
-        <PaneHeader icon={Lock} title={flat.title} />
+        <PaneHeader />
         <PaneBody>
           <div className="fade-up">
             <h1 className="h1">{t("Dein Abo ist beendet", "Your subscription has ended")}</h1>

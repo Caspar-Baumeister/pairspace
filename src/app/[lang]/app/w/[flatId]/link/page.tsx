@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, Link2 } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import Link from "next/link";
 
 import { PaneBody, PaneHeader } from "@/components/app/AppShell";
@@ -16,13 +16,20 @@ export default function LinkPage() {
   return (
     <>
       <PaneHeader
-        icon={Link2}
-        title={t(`Einladungslink · ${flat.title}`, `Invite link · ${flat.title}`)}
         actions={
           flat.status === "live" ? (
             // The applicant page has no language prefix, applicants get their language by themselves.
-            <a href={`/w/${flat.id}`} target="_blank" rel="noreferrer" className="btn btn-ghost h-7 px-2">
-              <ExternalLink size={13} strokeWidth={1.75} /> {t("Als Bewerber ansehen", "View as applicant")}
+            <a
+              href={`/w/${flat.id}`}
+              target="_blank"
+              rel="noreferrer"
+              className="btn btn-ghost h-7 px-2"
+              aria-label={t("Als Bewerber ansehen", "View as applicant")}
+              title={t("Als Bewerber ansehen", "View as applicant")}
+            >
+              <ExternalLink size={13} strokeWidth={1.75} />
+              {/* On phones the flat switcher needs the room. */}
+              <span className="hidden sm:inline">{t("Als Bewerber ansehen", "View as applicant")}</span>
             </a>
           ) : null
         }

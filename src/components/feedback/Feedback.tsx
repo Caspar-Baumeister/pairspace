@@ -31,8 +31,8 @@ export function FeedbackButton({
 }: {
   source: FeedbackSource;
   flatId?: string;
-  /** icon for toolbars, text for a quiet link. */
-  variant?: "icon" | "text";
+  /** icon for toolbars, text for a quiet link, nav for a sidebar row (icon only once collapsed). */
+  variant?: "icon" | "text" | "nav" | "nav-collapsed";
   className?: string;
 }) {
   const t = useT();
@@ -52,6 +52,17 @@ export function FeedbackButton({
           title={t("Wünsche, Feedback, Bugs", "Ideas, feedback, bugs")}
         >
           <MessageSquare size={16} strokeWidth={1.75} />
+        </button>
+      ) : variant === "nav" || variant === "nav-collapsed" ? (
+        <button
+          type="button"
+          className={`nav-item w-full text-left ${variant === "nav-collapsed" ? "justify-center px-0" : ""} ${className}`}
+          onClick={show}
+          aria-label={t("Feedback senden", "Send feedback")}
+          title={t("Wünsche, Feedback, Bugs", "Ideas, feedback, bugs")}
+        >
+          <MessageSquare size={16} strokeWidth={1.75} className="shrink-0" />
+          {variant === "nav" ? t("Feedback", "Feedback") : null}
         </button>
       ) : (
         <button type="button" className={`text-ui-small text-faint hover:text-muted ${className}`} onClick={show}>

@@ -11,7 +11,6 @@ import {
   Sparkles,
   UserRound,
   Users,
-  Waypoints,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -130,8 +129,6 @@ export function GraphView({ flat }: { flat: Flat }) {
   return (
     <>
       <PaneHeader
-        icon={Waypoints}
-        title={t(`Bewerber · ${flat.title}`, `Applicants · ${flat.title}`)}
         actions={
           <button
             type="button"

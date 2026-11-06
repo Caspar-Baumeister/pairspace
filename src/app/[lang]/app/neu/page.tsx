@@ -1,6 +1,5 @@
 "use client";
 
-import { FilePlus2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { PaneBody, PaneHeader, useShell } from "@/components/app/AppShell";
@@ -21,7 +20,7 @@ export default function NewFlatPage() {
 
   return (
     <>
-      <PaneHeader icon={FilePlus2} title={t("Neue Wohnung", "New flat")} />
+      <PaneHeader />
       <PaneBody>
         <div className="fade-up">
           <StepHeader

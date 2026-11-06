@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, FilePlus2, ShieldCheck } from "lucide-react";
+import { ArrowRight, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -86,7 +86,7 @@ export default function SetupPage() {
 
   return (
     <>
-      <PaneHeader icon={FilePlus2} title={t(`${flat.title} einrichten`, `Set up ${flat.title}`)} />
+      <PaneHeader />
       <PaneBody>
         <div key={step} className="fade-up">
           {step === "rooms" ? (

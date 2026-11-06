@@ -1,6 +1,5 @@
 "use client";
 
-import { House } from "lucide-react";
 import Link from "next/link";
 import { createContext, useContext, type ReactNode } from "react";
 
@@ -29,7 +28,7 @@ export function FlatProvider({ flatId, children }: { flatId: string; children: R
   if (!flat.data || flat.data.ownerUid !== user?.uid) {
     return (
       <>
-        <PaneHeader icon={House} title={t("Nicht gefunden", "Not found")} />
+        <PaneHeader />
         <PaneBody>
           <h1 className="h2">{t("Diese Wohnung gibt es nicht", "This flat doesn't exist")}</h1>
           <p className="mt-3 text-muted">

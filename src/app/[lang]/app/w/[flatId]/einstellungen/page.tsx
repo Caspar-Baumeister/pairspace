@@ -1,6 +1,5 @@
 "use client";
 
-import { Settings } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -40,7 +39,7 @@ export default function FlatSettingsPage() {
 
   return (
     <>
-      <PaneHeader icon={Settings} title={t(`Einstellungen · ${flat.title}`, `Settings · ${flat.title}`)} />
+      <PaneHeader />
       <PaneBody>
         <h1 className="h1">{t("Einstellungen", "Settings")}</h1>
 

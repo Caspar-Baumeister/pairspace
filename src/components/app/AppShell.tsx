@@ -2,14 +2,16 @@
 
 import {
   BedDouble,
+  Check,
   ChevronDown,
-  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   CircleHelp,
   CreditCard,
   House,
   Link2,
   LogOut,
-  PanelLeft,
+  Menu,
   Plus,
   Settings,
   Waypoints,
@@ -17,7 +19,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { FeedbackButton } from "@/components/feedback/Feedback";
 import { LanguageSwitch } from "@/components/site/LanguageSwitch";
@@ -28,16 +30,38 @@ import { basePath, type T } from "@/lib/i18n";
 import { useLocalePath, useT } from "@/lib/i18n/client";
 import { LEGAL_PAGES } from "@/lib/legal";
 import { isActive } from "@/lib/plans";
-import type { Flat, Landlord } from "@/lib/types";
+import type { Flat, Landlord, Subscription } from "@/lib/types";
 
-const ICON = { size: 18, strokeWidth: 1.75 } as const;
+const NAV = { size: 16, strokeWidth: 1.75 } as const;
 const SMALL = { size: 15, strokeWidth: 1.75 } as const;
+
+/** Per browser conveniences, the app works the same without them. */
+const COLLAPSED_KEY = "pairspace:sidebar-collapsed";
+const LAST_FLAT_KEY = "pairspace:last-flat";
+
+function readStored(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function store(key: string, value: string) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Private mode or blocked storage, nothing to remember then.
+  }
+}
 
 interface ShellState {
   landlord: Landlord | null;
   flats: Flat[];
   flatsLoading: boolean;
-  toggleSidebar: () => void;
+  /** The flat in the switcher: the one in the address, otherwise the one opened last. */
+  selectedFlat: Flat | null;
+  openMobileNav: () => void;
 }
 
 const ShellCtx = createContext<ShellState | null>(null);
@@ -58,228 +82,92 @@ function flatLinks(id: string, t: T) {
   ];
 }
 
+function planLabel(sub: Subscription | undefined, t: T): string {
+  if (!isActive(sub)) return t("Kein Abo", "No plan");
+  return sub?.status === "trialing" ? t("Testphase", "Free trial") : "Basic";
+}
+
+/** Closes a menu on a click outside of `ref` or on Escape. */
+function useDismiss(open: boolean, close: () => void) {
+  const ref = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(close);
+  closeRef.current = close;
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) closeRef.current();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeRef.current();
+    };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+  return ref;
+}
+
 /**
- * Obsidian's workspace: a 44px ribbon of actions on the far left, a sidebar
- * with a file tree (here: flats and their views), and the main pane.
+ * Laid out like the Firebase console: one sidebar that collapses to icons,
+ * a top bar with the flat switcher and the account menu, the page below.
+ * The sidebar always shows the views of the selected flat.
  */
 export function AppShell({ children }: { children: ReactNode }) {
-  const { user, signOut } = useAuth();
-  const router = useRouter();
+  const { user } = useAuth();
   const t = useT();
-  const lp = useLocalePath();
   const pathname = usePathname();
-  // The current view without /en, so it compares with the plain paths below.
+  // The current view without /en, so it compares with the plain paths.
   const path = basePath(pathname);
   const landlord = useLandlord(user?.uid);
   const flats = useMyFlats(user?.uid);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [lastFlatId, setLastFlatId] = useState<string | null>(null);
 
-  const currentFlatId = path.match(/^\/app\/w\/([^/]+)/)?.[1] ?? null;
+  const routeFlatId = path.match(/^\/app\/w\/([^/]+)/)?.[1] ?? null;
+
+  useEffect(() => {
+    setCollapsed(readStored(COLLAPSED_KEY) === "1");
+    setLastFlatId(readStored(LAST_FLAT_KEY));
+  }, []);
+
+  useEffect(() => {
+    if (!routeFlatId) return;
+    setLastFlatId(routeFlatId);
+    store(LAST_FLAT_KEY, routeFlatId);
+  }, [routeFlatId]);
 
   useEffect(() => setMobileOpen(false), [pathname]);
 
-  const toggleSidebar = () => {
-    if (window.matchMedia("(max-width: 767px)").matches) setMobileOpen((o) => !o);
-    else setSidebarOpen((o) => !o);
+  const selectedFlat = routeFlatId
+    ? (flats.data.find((f) => f.id === routeFlatId) ?? null)
+    : (flats.data.find((f) => f.id === lastFlatId) ?? flats.data[0] ?? null);
+
+  const toggleCollapsed = () => {
+    setCollapsed((c) => {
+      store(COLLAPSED_KEY, c ? "0" : "1");
+      return !c;
+    });
   };
-
-  const sub = landlord.data?.subscription;
-  const active = isActive(sub);
-
-  const signOutAndLeave = async () => {
-    await signOut();
-    router.replace(lp("/"));
-  };
-
-  const sidebar = (
-    <nav className="flex h-full w-[260px] flex-col bg-bg-2" aria-label={t("Wohnungen", "Flats")}>
-      <div className="flex h-10 shrink-0 items-center justify-between px-3">
-        <span className="ui-label">{t("Wohnungen", "Flats")}</span>
-        <div className="flex items-center gap-0.5">
-          <Link
-            href={lp("/app/neu")}
-            className="icon-btn"
-            aria-label={t("Neue Wohnung", "New flat")}
-            title={t("Neue Wohnung", "New flat")}
-          >
-            <Plus {...SMALL} />
-          </Link>
-          <button
-            type="button"
-            className="icon-btn md:hidden"
-            onClick={() => setMobileOpen(false)}
-            aria-label={t("Schließen", "Close")}
-          >
-            <X {...SMALL} />
-          </button>
-        </div>
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
-        {flats.data.map((flat) => {
-          const open = !collapsed[flat.id];
-          return (
-            <div key={flat.id} className="mb-1">
-              <button
-                type="button"
-                className="nav-item w-full text-left"
-                onClick={() => setCollapsed((c) => ({ ...c, [flat.id]: open }))}
-              >
-                {open ? <ChevronDown size={14} strokeWidth={1.75} /> : <ChevronRight size={14} strokeWidth={1.75} />}
-                <span className="min-w-0 flex-1 truncate font-medium text-ink">{flat.title || t("Neue Wohnung", "New flat")}</span>
-                {flat.status !== "live" ? (
-                  <span className="rounded-sm bg-base-30 px-1.5 text-[11px] text-faint">
-                    {flat.status === "draft" ? t("Entwurf", "Draft") : t("Pausiert", "Paused")}
-                  </span>
-                ) : null}
-              </button>
-              {open ? (
-                <div className="ml-[15px] border-l border-line pl-1.5">
-                  {flatLinks(flat.id, t).map(({ href, label, icon: Icon }) => (
-                    <Link key={href} href={lp(href)} className={`nav-item ${path === href ? "is-active" : ""}`}>
-                      <Icon size={14} strokeWidth={1.75} />
-                      {label}
-                    </Link>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          );
-        })}
-        {!flats.loading && flats.data.length === 0 ? (
-          <Link href={lp("/app/neu")} className="nav-item text-accent">
-            <Plus size={14} strokeWidth={1.75} /> {t("Erste Wohnung anlegen", "Add your first flat")}
-          </Link>
-        ) : null}
-      </div>
-
-      <div className="shrink-0 border-t border-line p-2">
-        <Link href={lp("/app/abo")} className={`nav-item ${path === "/app/abo" ? "is-active" : ""}`}>
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-base-30 text-[11px] font-semibold text-ink">
-            {(landlord.data?.name || user?.email || "?").slice(0, 1).toUpperCase()}
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-ink">{landlord.data?.name || user?.email}</span>
-            <span className="block text-[11px] text-faint">
-              {active
-                ? sub?.status === "trialing"
-                  ? t("Basic, Testphase", "Basic, free trial")
-                  : "Basic"
-                : t("Kein Abo", "No subscription")}
-            </span>
-          </span>
-        </Link>
-        <div className="mt-1 flex items-center justify-between pl-1.5">
-          <LanguageSwitch source="app" />
-          {/* The ribbon is desktop only, its bottom actions live here on phones. */}
-          <div className="flex items-center gap-0.5 md:hidden">
-            <Link href={lp("/#video")} className="icon-btn" aria-label={t("Hilfe", "Help")} title={t("Hilfe", "Help")}>
-              <CircleHelp {...SMALL} />
-            </Link>
-            <FeedbackButton source="landlord" />
-            <button
-              type="button"
-              className="icon-btn"
-              onClick={signOutAndLeave}
-              aria-label={t("Abmelden", "Sign out")}
-              title={t("Abmelden", "Sign out")}
-            >
-              <LogOut {...SMALL} />
-            </button>
-          </div>
-        </div>
-        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 px-1.5 pb-0.5 text-[11px] text-faint">
-          {LEGAL_PAGES.map((page) => (
-            <Link key={page.path} href={lp(page.path)} target="_blank" className="hover:text-muted">
-              {t(page.de, page.en)}
-            </Link>
-          ))}
-        </div>
-      </div>
-    </nav>
-  );
 
   return (
     <ShellCtx.Provider
-      value={{ landlord: landlord.data, flats: flats.data, flatsLoading: flats.loading, toggleSidebar }}
+      value={{
+        landlord: landlord.data,
+        flats: flats.data,
+        flatsLoading: flats.loading,
+        selectedFlat,
+        openMobileNav: () => setMobileOpen(true),
+      }}
     >
       <div className="flex h-dvh overflow-hidden bg-bg">
-        {/* Ribbon */}
-        <aside className="hidden w-[44px] shrink-0 flex-col items-center gap-1 border-r border-line bg-bg-2 py-2 md:flex">
-          <Link href={lp("/app")} className="mb-2 flex h-8 w-8 items-center justify-center text-ink" aria-label="Pairspace">
-            <LogoMark size={20} />
-          </Link>
-          <button
-            type="button"
-            className="icon-btn h-8 w-8"
-            onClick={toggleSidebar}
-            aria-label={t("Seitenleiste", "Sidebar")}
-            title={t("Seitenleiste", "Sidebar")}
-          >
-            <PanelLeft {...ICON} />
-          </button>
-          {currentFlatId ? (
-            <>
-              <Link
-                href={lp(`/app/w/${currentFlatId}`)}
-                className={`icon-btn h-8 w-8 ${path === `/app/w/${currentFlatId}` ? "is-active" : ""}`}
-                aria-label={t("Bewerber Graph", "Applicant graph")}
-                title={t("Bewerber Graph", "Applicant graph")}
-              >
-                <Waypoints {...ICON} />
-              </Link>
-              <Link
-                href={lp(`/app/w/${currentFlatId}/zimmer`)}
-                className={`icon-btn h-8 w-8 ${path.endsWith("/zimmer") ? "is-active" : ""}`}
-                aria-label={t("Zimmer", "Rooms")}
-                title={t("Zimmer", "Rooms")}
-              >
-                <BedDouble {...ICON} />
-              </Link>
-              <Link
-                href={lp(`/app/w/${currentFlatId}/link`)}
-                className={`icon-btn h-8 w-8 ${path.endsWith("/link") ? "is-active" : ""}`}
-                aria-label={t("Einladungslink", "Invite link")}
-                title={t("Einladungslink", "Invite link")}
-              >
-                <Link2 {...ICON} />
-              </Link>
-            </>
-          ) : (
-            <Link href={lp("/app")} className="icon-btn h-8 w-8" aria-label={t("Wohnungen", "Flats")} title={t("Wohnungen", "Flats")}>
-              <House {...ICON} />
-            </Link>
-          )}
-          <div className="flex-1" />
-          <Link
-            href={lp("/app/abo")}
-            className={`icon-btn h-8 w-8 ${path === "/app/abo" ? "is-active" : ""}`}
-            aria-label={t("Abo", "Subscription")}
-            title={t("Abo", "Subscription")}
-          >
-            <CreditCard {...ICON} />
-          </Link>
-          <Link href={lp("/#video")} className="icon-btn h-8 w-8" aria-label={t("Hilfe", "Help")} title={t("Hilfe", "Help")}>
-            <CircleHelp {...ICON} />
-          </Link>
-          <FeedbackButton source="landlord" className="h-8 w-8" />
-          <button
-            type="button"
-            className="icon-btn h-8 w-8"
-            onClick={signOutAndLeave}
-            aria-label={t("Abmelden", "Sign out")}
-            title={t("Abmelden", "Sign out")}
-          >
-            <LogOut {...ICON} />
-          </button>
-        </aside>
+        <div className="hidden shrink-0 border-r border-line md:block">
+          <Sidebar path={path} flatId={routeFlatId ?? selectedFlat?.id ?? null} collapsed={collapsed} onToggle={toggleCollapsed} />
+        </div>
 
-        {/* Sidebar, desktop */}
-        {sidebarOpen ? <div className="hidden shrink-0 border-r border-line md:block">{sidebar}</div> : null}
-
-        {/* Sidebar, mobile drawer */}
         {mobileOpen ? (
           <div className="fixed inset-0 z-40 md:hidden">
             <button
@@ -288,7 +176,9 @@ export function AppShell({ children }: { children: ReactNode }) {
               onClick={() => setMobileOpen(false)}
               aria-label={t("Schließen", "Close")}
             />
-            <div className="relative h-full w-[260px] border-r border-line shadow-2xl">{sidebar}</div>
+            <div className="relative h-full w-[260px] border-r border-line shadow-2xl">
+              <Sidebar path={path} flatId={routeFlatId ?? selectedFlat?.id ?? null} onClose={() => setMobileOpen(false)} />
+            </div>
           </div>
         ) : null}
 
@@ -298,32 +188,254 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 }
 
-/**
- * Obsidian's tab header plus view header: one active tab with the view's icon
- * and title, actions on the right.
- */
-export function PaneHeader({
-  icon: Icon,
-  title,
-  actions,
+function Sidebar({
+  path,
+  flatId,
+  collapsed = false,
+  onToggle,
+  onClose,
 }: {
-  icon: typeof Waypoints;
-  title: string;
-  actions?: ReactNode;
+  path: string;
+  flatId: string | null;
+  collapsed?: boolean;
+  /** Desktop: collapse to icons and back. */
+  onToggle?: () => void;
+  /** Phone drawer: close it. */
+  onClose?: () => void;
 }) {
-  const { toggleSidebar } = useShell();
+  const { landlord, flatsLoading } = useShell();
+  const t = useT();
+  const lp = useLocalePath();
+
+  const row = (href: string, label: string, Icon: typeof Waypoints, extra?: ReactNode) => (
+    <Link
+      key={href}
+      href={lp(href)}
+      className={`nav-item min-h-8 ${path === href ? "is-active" : ""} ${collapsed ? "justify-center px-0" : ""}`}
+      title={collapsed ? label : undefined}
+      aria-label={collapsed ? label : undefined}
+    >
+      <Icon {...NAV} className="shrink-0" />
+      {collapsed ? null : (
+        <>
+          <span className="min-w-0 flex-1 truncate">{label}</span>
+          {extra}
+        </>
+      )}
+    </Link>
+  );
+
+  return (
+    <nav
+      className={`flex h-full flex-col bg-bg-2 transition-[width] duration-150 ${collapsed ? "w-[52px]" : "w-[240px]"}`}
+      aria-label="Pairspace"
+    >
+      <div className={`flex h-12 shrink-0 items-center ${collapsed ? "justify-center" : "justify-between px-4"}`}>
+        <Link href={lp("/app")} className="flex items-center gap-2.5 text-ink" aria-label="Pairspace">
+          <LogoMark size={22} />
+          {collapsed ? null : <span className="text-[15px] font-semibold tracking-[-0.01em]">Pairspace</span>}
+        </Link>
+        {onClose ? (
+          <button type="button" className="icon-btn" onClick={onClose} aria-label={t("Schließen", "Close")}>
+            <X {...SMALL} />
+          </button>
+        ) : null}
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2 py-2">
+        <div className="flex flex-col gap-0.5">
+          {flatId
+            ? flatLinks(flatId, t).map(({ href, label, icon }) => row(href, label, icon))
+            : flatsLoading
+              ? null
+              : row("/app/neu", t("Erste Wohnung anlegen", "Add your first flat"), Plus)}
+        </div>
+        <div className="mx-2 my-3 border-t border-line" />
+        <div className="flex flex-col gap-0.5">
+          {row(
+            "/app/abo",
+            t("Abo", "Subscription"),
+            CreditCard,
+            <span className="text-[11px] text-faint">{planLabel(landlord?.subscription, t)}</span>,
+          )}
+          {row("/#video", t("Hilfe", "Help"), CircleHelp)}
+          <FeedbackButton source="landlord" variant={collapsed ? "nav-collapsed" : "nav"} className="min-h-8" />
+        </div>
+      </div>
+
+      <div className="shrink-0 border-t border-line p-2">
+        {collapsed ? null : (
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 px-2 pb-2 pt-1 text-[11px] text-faint">
+            {LEGAL_PAGES.map((page) => (
+              <Link key={page.path} href={lp(page.path)} target="_blank" className="hover:text-muted">
+                {t(page.de, page.en)}
+              </Link>
+            ))}
+          </div>
+        )}
+        {onToggle ? (
+          <div className={`flex ${collapsed ? "justify-center" : "justify-end"}`}>
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={onToggle}
+              aria-label={collapsed ? t("Seitenleiste ausklappen", "Expand sidebar") : t("Seitenleiste einklappen", "Collapse sidebar")}
+              title={collapsed ? t("Ausklappen", "Expand") : t("Einklappen", "Collapse")}
+            >
+              {collapsed ? <ChevronsRight {...SMALL} /> : <ChevronsLeft {...SMALL} />}
+            </button>
+          </div>
+        ) : null}
+      </div>
+    </nav>
+  );
+}
+
+function FlatStatus({ flat }: { flat: Flat }) {
+  const t = useT();
+  if (flat.status === "live") return null;
+  return (
+    <span className="shrink-0 rounded-sm bg-base-30 px-1.5 text-[11px] font-normal text-faint">
+      {flat.status === "draft" ? t("Entwurf", "Draft") : t("Pausiert", "Paused")}
+    </span>
+  );
+}
+
+/** Firebase's project picker: which flat the sidebar and the page are about. */
+function FlatSwitcher() {
+  const { flats, selectedFlat } = useShell();
+  const t = useT();
+  const lp = useLocalePath();
+  const path = basePath(usePathname());
+  const [open, setOpen] = useState(false);
+  const ref = useDismiss(open, () => setOpen(false));
+  // Switching keeps the view, the way Firebase keeps the product when the project changes.
+  const view = path.match(/^\/app\/w\/[^/]+(\/(?:zimmer|link|einstellungen))$/)?.[1] ?? "";
+  const name = (flat: Flat) => flat.title || t("Neue Wohnung", "New flat");
+
+  return (
+    <div ref={ref} className="relative min-w-0">
+      <button
+        type="button"
+        className="flex h-8 min-w-0 max-w-full items-center gap-2 rounded-md px-2 text-ui-small font-medium text-ink transition-colors hover:bg-[var(--hover)]"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        <House {...SMALL} className="shrink-0 text-faint" />
+        <span className="truncate">{selectedFlat ? name(selectedFlat) : t("Wohnung wählen", "Choose a flat")}</span>
+        {selectedFlat ? <FlatStatus flat={selectedFlat} /> : null}
+        <ChevronDown size={14} strokeWidth={1.75} className="shrink-0 text-faint" />
+      </button>
+      {open ? (
+        <div
+          role="menu"
+          className="absolute left-0 top-full z-30 mt-1 w-[min(300px,calc(100vw-24px))] rounded-lg border border-line bg-bg-2 p-1 shadow-[var(--shadow-l)]"
+        >
+          <div className="ui-label px-2 pb-1 pt-1.5">{t("Deine Wohnungen", "Your flats")}</div>
+          <div className="max-h-[50vh] overflow-y-auto">
+            {flats.map((flat) => (
+              <Link
+                key={flat.id}
+                role="menuitem"
+                href={lp(`/app/w/${flat.id}${view}`)}
+                onClick={() => setOpen(false)}
+                className={`nav-item min-h-8 ${flat.id === selectedFlat?.id ? "text-ink" : ""}`}
+              >
+                <span className="min-w-0 flex-1 truncate">{name(flat)}</span>
+                <FlatStatus flat={flat} />
+                <Check {...SMALL} className={`shrink-0 text-accent ${flat.id === selectedFlat?.id ? "" : "invisible"}`} />
+              </Link>
+            ))}
+          </div>
+          <div className="mx-1 my-1 border-t border-line" />
+          <Link role="menuitem" href={lp("/app/neu")} onClick={() => setOpen(false)} className="nav-item min-h-8">
+            <Plus {...SMALL} className="shrink-0" />
+            {t("Neue Wohnung", "New flat")}
+          </Link>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** The account in the top right, like the avatar in the Firebase console. */
+function AccountMenu() {
+  const { user, signOut } = useAuth();
+  const { landlord } = useShell();
+  const router = useRouter();
+  const t = useT();
+  const lp = useLocalePath();
+  const [open, setOpen] = useState(false);
+  const ref = useDismiss(open, () => setOpen(false));
+  const name = landlord?.name || user?.displayName || user?.email || "";
+
+  const signOutAndLeave = async () => {
+    await signOut();
+    router.replace(lp("/"));
+  };
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        type="button"
+        className="flex h-8 w-8 items-center justify-center rounded-full bg-base-30 text-[12px] font-semibold text-ink ring-accent-line transition hover:ring-2"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={t("Konto", "Account")}
+        title={name}
+      >
+        {(name || "?").slice(0, 1).toUpperCase()}
+      </button>
+      {open ? (
+        <div
+          role="menu"
+          className="absolute right-0 top-full z-30 mt-1 w-[min(280px,calc(100vw-24px))] rounded-lg border border-line bg-bg-2 p-1 shadow-[var(--shadow-l)]"
+        >
+          <div className="px-2 pb-2 pt-1.5">
+            <div className="truncate text-ui-small font-medium text-ink">{landlord?.name || user?.displayName || name}</div>
+            {user?.email ? <div className="truncate text-[12px] text-faint">{user.email}</div> : null}
+          </div>
+          <Link role="menuitem" href={lp("/app/abo")} onClick={() => setOpen(false)} className="nav-item min-h-8">
+            <CreditCard {...SMALL} className="shrink-0" />
+            <span className="flex-1">{t("Abo", "Subscription")}</span>
+            <span className="text-[11px] text-faint">{planLabel(landlord?.subscription, t)}</span>
+          </Link>
+          <div className="px-2 py-1">
+            <LanguageSwitch source="app" />
+          </div>
+          <div className="mx-1 my-1 border-t border-line" />
+          <button type="button" role="menuitem" onClick={signOutAndLeave} className="nav-item min-h-8 w-full text-left">
+            <LogOut {...SMALL} className="shrink-0" />
+            {t("Abmelden", "Sign out")}
+          </button>
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 px-2 pb-1 pt-2 text-[11px] text-faint">
+            {LEGAL_PAGES.map((page) => (
+              <Link key={page.path} href={lp(page.path)} target="_blank" className="hover:text-muted">
+                {t(page.de, page.en)}
+              </Link>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** The top bar of every page: menu on phones, flat switcher, the page's actions, account. */
+export function PaneHeader({ actions }: { actions?: ReactNode }) {
+  const { openMobileNav } = useShell();
   const t = useT();
   return (
-    <header className="flex h-10 shrink-0 items-end gap-1 border-b border-line bg-bg-2 px-2">
-      <button type="button" className="icon-btn mb-1.5 md:hidden" onClick={toggleSidebar} aria-label={t("Seitenleiste", "Sidebar")}>
-        <PanelLeft {...SMALL} />
+    <header className="flex h-12 shrink-0 items-center gap-1 border-b border-line bg-bg px-2 md:px-3">
+      <button type="button" className="icon-btn shrink-0 md:hidden" onClick={openMobileNav} aria-label={t("Menü", "Menu")}>
+        <Menu {...SMALL} />
       </button>
-      <div className="relative -mb-px flex h-8 min-w-0 max-w-[280px] items-center gap-2 rounded-t-lg border border-b-0 border-line bg-bg px-3 text-ui-small text-ink">
-        <Icon size={14} strokeWidth={1.75} className="shrink-0 text-muted" />
-        <span className="truncate">{title}</span>
-      </div>
+      <FlatSwitcher />
       <div className="flex-1" />
-      <div className="mb-1.5 flex items-center gap-1">{actions}</div>
+      {actions ? <div className="flex shrink-0 items-center gap-1">{actions}</div> : null}
+      <AccountMenu />
     </header>
   );
 }

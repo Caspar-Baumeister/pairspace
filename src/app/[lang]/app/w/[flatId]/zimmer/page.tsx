@@ -1,6 +1,5 @@
 "use client";
 
-import { BedDouble } from "lucide-react";
 
 import { PaneBody, PaneHeader } from "@/components/app/AppShell";
 import { RoomsEditor } from "@/components/flat/RoomsEditor";
@@ -13,7 +12,7 @@ export default function RoomsPage() {
   const t = useT();
   return (
     <>
-      <PaneHeader icon={BedDouble} title={t(`Zimmer · ${flat.title}`, `Rooms · ${flat.title}`)} />
+      <PaneHeader />
       <PaneBody>
         <h1 className="h1">{t("Zimmer", "Rooms")}</h1>
         <p className="mt-2 text-muted">

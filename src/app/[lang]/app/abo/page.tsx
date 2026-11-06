@@ -1,6 +1,6 @@
 "use client";
 
-import { CreditCard, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -89,7 +89,7 @@ export default function SubscriptionPage() {
 
   return (
     <>
-      <PaneHeader icon={CreditCard} title={t("Abo", "Subscription")} />
+      <PaneHeader />
       <PaneBody wide>
         <h1 className="h1">{t("Abo", "Subscription")}</h1>
         {confirming ? (

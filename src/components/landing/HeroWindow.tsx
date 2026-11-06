@@ -1,8 +1,9 @@
 "use client";
 
-import { BedDouble, ChevronDown, FolderClosed, Link2, Search, Settings, Waypoints } from "lucide-react";
+import { BedDouble, ChevronDown, CircleHelp, CreditCard, House, Link2, Settings, Waypoints } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { LogoMark } from "@/components/ui/Logo";
 import { intlLocale } from "@/lib/i18n";
 import { useLocale, useT } from "@/lib/i18n/client";
 
@@ -106,38 +107,29 @@ export function HeroWindow() {
 
   return (
     <div className="overflow-hidden rounded-xl border border-line-strong bg-bg shadow-[0_40px_120px_rgba(0,0,0,0.55)]">
-      {/* Title bar with one tab */}
+      {/* Title bar: the flat switcher and the account, like the app's top bar */}
       <div className="flex h-10 items-center gap-3 border-b border-line bg-bg-2 px-3">
         <div className="flex gap-1.5">
           {[0, 1, 2].map((k) => (
             <span key={k} className="h-3 w-3 rounded-full bg-base-35" />
           ))}
         </div>
-        <div className="ml-2 flex h-full items-end">
-          <div className="flex h-8 items-center gap-2 rounded-t-md border border-b-0 border-line bg-bg px-3 text-ui-small text-ink">
-            <Waypoints size={14} strokeWidth={1.75} className="text-muted" />
-            {t("Bewerber", "Applicants")}
-            <span className="hidden text-faint sm:inline">· {t("3er WG Weserstraße", "Flatshare for 3, Weserstraße")}</span>
-          </div>
+        <div className="ml-2 flex min-w-0 items-center gap-2 rounded-md px-2 py-1 text-ui-small font-medium text-ink">
+          <House size={14} strokeWidth={1.75} className="shrink-0 text-faint" />
+          <span className="truncate">{t("3er WG Weserstraße", "Flatshare for 3, Weserstraße")}</span>
+          <ChevronDown size={14} strokeWidth={1.75} className="shrink-0 text-faint" />
         </div>
+        <span className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-base-30 text-[11px] font-semibold text-ink">
+          C
+        </span>
       </div>
 
       <div className="flex h-[380px] sm:h-[460px] lg:h-[540px]">
-        {/* Ribbon */}
-        <div className="hidden w-11 flex-col items-center gap-1 border-r border-line bg-bg-2 py-2 md:flex">
-          {[Waypoints, BedDouble, Link2, Search].map((Icon, k) => (
-            <span key={k} className={`flex h-8 w-8 items-center justify-center rounded-md ${k === 0 ? "bg-[var(--hover)] text-ink" : "text-faint"}`}>
-              <Icon {...STROKE} />
-            </span>
-          ))}
-        </div>
-
-        {/* Sidebar: more than one flat, all in one account */}
-        <div className="hidden w-[220px] shrink-0 border-r border-line bg-bg-2 px-2 py-3 text-ui-small md:block">
-          <div className="ui-label px-2 pb-2">{t("Wohnungen", "Flats")}</div>
-          <div className="flex items-center gap-1.5 rounded px-2 py-1 text-ink">
-            <ChevronDown size={14} strokeWidth={1.75} className="text-faint" />
-            {t("3er WG Weserstraße", "Flatshare for 3, Weserstraße")}
+        {/* Sidebar: the views of the selected flat */}
+        <div className="hidden w-[200px] shrink-0 flex-col border-r border-line bg-bg-2 px-2 py-3 text-ui-small md:flex">
+          <div className="flex items-center gap-2 px-2 pb-3 text-ink">
+            <LogoMark size={18} />
+            <span className="font-semibold tracking-[-0.01em]">Pairspace</span>
           </div>
           {[
             { icon: Waypoints, label: t("Bewerber", "Applicants"), active: true },
@@ -147,20 +139,20 @@ export function HeroWindow() {
           ].map(({ icon: Icon, label, active }) => (
             <div
               key={label}
-              className={`ml-4 flex items-center gap-2 rounded px-2 py-1 ${active ? "bg-[var(--hover)] text-ink" : "text-muted"}`}
+              className={`flex items-center gap-2 rounded px-2 py-1.5 ${active ? "bg-[var(--hover)] text-ink" : "text-muted"}`}
             >
-              <Icon size={14} strokeWidth={1.75} className={active ? "text-accent" : "text-faint"} />
+              <Icon size={15} strokeWidth={1.75} className={active ? "text-accent" : "text-faint"} />
               {label}
             </div>
           ))}
+          <div className="mx-2 my-3 border-t border-line" />
           {[
-            t("4er WG Sonnenallee", "Flatshare for 4, Sonnenallee"),
-            t("2er WG Graefekiez", "Flatshare for 2, Graefekiez"),
-            t("5er WG Schillerkiez", "Flatshare for 5, Schillerkiez"),
-          ].map((name) => (
-            <div key={name} className="mt-0.5 flex items-center gap-1.5 truncate rounded px-2 py-1 text-muted">
-              <FolderClosed size={14} strokeWidth={1.75} className="shrink-0 text-faint" />
-              <span className="truncate">{name}</span>
+            { icon: CreditCard, label: t("Abo", "Subscription") },
+            { icon: CircleHelp, label: t("Hilfe", "Help") },
+          ].map(({ icon: Icon, label }) => (
+            <div key={label} className="flex items-center gap-2 rounded px-2 py-1.5 text-muted">
+              <Icon size={15} strokeWidth={1.75} className="text-faint" />
+              {label}
             </div>
           ))}
         </div>
