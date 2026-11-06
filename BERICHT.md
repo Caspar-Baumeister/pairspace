@@ -142,12 +142,12 @@ Siehe README. Kurz: `npm run emulators`, `npm run seed`, `npm run dev`. Demo-Ver
    - **Anwalt prüfen lassen:**
      - Der Zahlknopf in Stripe heißt bei einer Testphase womöglich "Testzeitraum starten" statt "Abonnieren". Ob das § 312j Abs. 3 BGB genügt, ist offen.
      - Nach dem ersten Jahr muss das Jahresabo für Verbraucher monatlich kündbar sein, mit anteiliger Erstattung (§ 309 Nr. 9 BGB). Das läuft heute von Hand über Stripe.
-4. **PostHog-Key fehlt (Stand 06.11.2026):** Live wird nichts getrackt. In der PostHog-Organisation (mit Zahlungsdaten, Projekte Sprout, Kegel, Holy Work, FocusTrain, Escape Velocity Rituals) gibt es noch kein Projekt "Pairspace". Projekt anlegen, "Cookieless server hash mode" einschalten, den `phc_`-Key in `apphosting.yaml` eintragen (Block ist vorbereitet), pushen, Dashboard bauen.
+4. **PostHog (seit 06.11.2026):** Projekt "Pairspace" (EU, id 337522) in Caspars Organisation, IPs anonymisiert, Cookieless server hash mode an, kein Autocapture, keine Aufnahmen. Der Key steht in `apphosting.yaml`, Events laufen über `/ingest` und tragen `app: "pairspace"`. Den Vertrag zur Auftragsverarbeitung schließt die Organisation einmal für alle Projekte ab.
 5. **Vor dem Marketing-Start, Stand 06.11.2026:**
    - **Nutzung:** Außer Caspars Konto gibt es keine Vermieter, keine Bewerber und kein Feedback. Die 62 anonymen Auth-Konten stammen fast alle aus dem alten Event-Pairspace (September).
    - **Kauf einmal echt testen:** Checkout mit eigener Karte, Vertragsmail, Kündigen im Portal.
-   - **Backups:** Firestore hat weder Backups noch Point-in-time-Recovery noch Löschschutz.
-   - **Vorschaubild:** Kein `og:image`, geteilte Links (WhatsApp, Kleinanzeigen, LinkedIn) zeigen kein Bild.
+   - **Backups (erledigt 06.11.):** Firestore sichert täglich und hebt jede Sicherung 14 Tage auf, Löschschutz ist an. Fotos in Storage sind nicht gesichert.
+   - **Vorschaubild (erledigt 06.11.):** `public/og-de.png` und `og-en.png` aus `node scripts/og-image.mjs`, eingebunden im Root-Layout für Open Graph und X.
    - **Google-Login** zeigt "weiter zu pairspace-live.firebaseapp.com" statt joinpairspace.com.
 6. **Formel nachschärfen:** Wer alle mit Unbedingt bewertet (Max in den Demodaten), landet in vielen Vorschlägen, weil sein hoher Wert jedes Paargewicht anhebt. Gegenmittel: Bewertungen pro Person normalisieren (zum Beispiel auf ihren eigenen Durchschnitt), bevor das Paargewicht gerechnet wird.
 7. **Später:** Grundriss mit eingezeichneten Zimmern, bestehende Mitbewohner bewerten mit, Gewichtung Menschen und Zimmer als Regler für den Vermieter.

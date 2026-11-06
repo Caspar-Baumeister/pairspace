@@ -19,6 +19,10 @@ export async function generateMetadata({ params }: { params: Promise<{ lang: str
   const locale = toLocale((await params).lang);
   const t = translator(locale);
   const title = t("Pairspace | Die passende WG für deine Zimmer", "Pairspace | The right flatmates for your rooms");
+  const preview = t(
+    "Pairspace: Vermiete an Leute, die zusammenpassen. Ein Graph aus Bewerbern, die beste Gruppe leuchtet auf.",
+    "Pairspace: Rent to people who fit together. A graph of applicants with the best group highlighted.",
+  );
   return {
     metadataBase: new URL(site),
     title: { default: title, template: "%s | Pairspace" },
@@ -37,7 +41,10 @@ export async function generateMetadata({ params }: { params: Promise<{ lang: str
         "Applicants rate each other and a graph shows you who fits together.",
       ),
       locale: locale === "en" ? "en_GB" : "de_DE",
+      // Rendered by scripts/og-image.mjs.
+      images: [{ url: `/og-${locale}.png`, width: 1200, height: 630, alt: preview }],
     },
+    twitter: { card: "summary_large_image", title, images: [{ url: `/og-${locale}.png`, alt: preview }] },
     robots: { index: true, follow: true },
   };
 }
