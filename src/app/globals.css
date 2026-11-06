@@ -426,6 +426,25 @@ body {
   }
 }
 
+/* A box someone skipped: a short shake, so the eye finds it. */
+@keyframes nudge {
+  0%,
+  100% {
+    transform: none;
+  }
+  20%,
+  60% {
+    transform: translateX(-6px);
+  }
+  40%,
+  80% {
+    transform: translateX(6px);
+  }
+}
+.nudge {
+  animation: nudge 360ms ease-in-out;
+}
+
 @keyframes card-out-left {
   to {
     opacity: 0;

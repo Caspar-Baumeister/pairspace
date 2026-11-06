@@ -47,7 +47,8 @@ export function PricingCards({
   const lp = useLocalePath();
   const [busy, setBusy] = useState<PlanInterval | null>(null);
   const [agreed, setAgreed] = useState(false);
-  const [nudge, setNudge] = useState(false);
+  // Counts the skipped clicks, a new key replays the shake each time.
+  const [nudge, setNudge] = useState(0);
   const consentRef = useRef<HTMLLabelElement>(null);
   const yearlySaving = BASIC.monthly * 12 - BASIC.yearly;
   const days = BASIC.trialDays;
@@ -56,7 +57,7 @@ export function PricingCards({
 
   const choose = async (interval: PlanInterval) => {
     if (withConsent && !agreed) {
-      setNudge(true);
+      setNudge((n) => n + 1);
       consentRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
@@ -164,9 +165,10 @@ export function PricingCards({
       </div>
       {withConsent ? (
         <label
+          key={nudge}
           ref={consentRef}
-          className={`mt-4 flex cursor-pointer items-start gap-2.5 rounded-md border p-3 text-ui-small text-muted ${
-            nudge && !agreed ? "border-accent-line" : "border-transparent"
+          className={`mt-4 flex cursor-pointer items-start gap-2.5 rounded-md border p-3 text-ui-small transition-colors ${
+            nudge && !agreed ? "nudge border-accent bg-accent-soft text-ink" : "border-transparent text-muted"
           }`}
         >
           <input
@@ -175,7 +177,7 @@ export function PricingCards({
             checked={agreed}
             onChange={(e) => {
               setAgreed(e.target.checked);
-              setNudge(false);
+              setNudge(0);
             }}
           />
           <span>
@@ -196,7 +198,7 @@ export function PricingCards({
               </>
             )}
             {nudge && !agreed ? (
-              <span className="mt-1 block text-accent">
+              <span className="mt-1.5 block font-medium text-accent-hover">
                 {t(
                   "Bitte bestätige das zuerst, dann geht es weiter zur Zahlung.",
                   "Please confirm this first, then you continue to payment.",
