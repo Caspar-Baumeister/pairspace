@@ -145,7 +145,7 @@ Siehe README. Kurz: `npm run emulators`, `npm run seed`, `npm run dev`. Demo-Ver
 4. **PostHog (seit 06.11.2026):** Projekt "Pairspace" (EU, id 337522) in Caspars Organisation, IPs anonymisiert, Cookieless server hash mode an, kein Autocapture, keine Aufnahmen. Der Key steht in `apphosting.yaml`, Events laufen über `/ingest` und tragen `app: "pairspace"`. Den Vertrag zur Auftragsverarbeitung schließt die Organisation einmal für alle Projekte ab.
 5. **Vor dem Marketing-Start, Stand 06.11.2026:**
    - **Nutzung:** Außer Caspars Konto gibt es keine Vermieter, keine Bewerber und kein Feedback. Die 62 anonymen Auth-Konten stammen fast alle aus dem alten Event-Pairspace (September).
-   - **Kauf einmal echt testen:** Checkout mit eigener Karte, Vertragsmail, Kündigen im Portal.
+   - **Echter Kauf (getestet 07.11.):** Checkout mit Caspars Karte, Abo in Stripe und Firestore, Vertragsmail kam an, Kündigung im Portal kam per Webhook an ("Gekündigt, läuft noch bis 9. November 2026"), nichts wird abgebucht. Lücke: Nach einer Kündigung im Portal geht keine Bestätigungsmail raus, die AGB versprechen sie aber für jeden Weg.
    - **Backups (erledigt 06.11.):** Firestore sichert täglich und hebt jede Sicherung 14 Tage auf, Löschschutz ist an. Fotos in Storage sind nicht gesichert.
    - **Vorschaubild (erledigt 06.11.):** `public/og-de.png` und `og-en.png` aus `node scripts/og-image.mjs`, eingebunden im Root-Layout für Open Graph und X.
    - **Google-Login** zeigt "weiter zu pairspace-live.firebaseapp.com" statt joinpairspace.com.
