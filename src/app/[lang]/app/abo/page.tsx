@@ -17,7 +17,7 @@ import { CONTRACT_BUTTONS } from "@/lib/legal";
 import { BASIC, isActive } from "@/lib/plans";
 
 export default function SubscriptionPage() {
-  const { landlord } = useShell();
+  const { landlord, landlordLoading } = useShell();
   const t = useT();
   const locale = useLocale();
   const lp = useLocalePath();
@@ -86,6 +86,21 @@ export default function SubscriptionPage() {
     }
     return t(`Aktiv bis ${date(sub.currentPeriodEnd)}, verlängert sich automatisch`, `Active until ${date(sub.currentPeriodEnd)}, renews automatically`);
   };
+
+  // Until the account has loaded a subscriber would briefly see the price cards.
+  if (landlordLoading) {
+    return (
+      <>
+        <PaneHeader />
+        <PaneBody wide>
+          <h1 className="h1">{t("Abo", "Subscription")}</h1>
+          <p className="mt-4 text-muted">
+            <Spinner size={14} />
+          </p>
+        </PaneBody>
+      </>
+    );
+  }
 
   return (
     <>

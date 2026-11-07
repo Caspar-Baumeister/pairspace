@@ -57,6 +57,7 @@ function store(key: string, value: string) {
 
 interface ShellState {
   landlord: Landlord | null;
+  landlordLoading: boolean;
   flats: Flat[];
   flatsLoading: boolean;
   /** The flat in the switcher: the one in the address, otherwise the one opened last. */
@@ -157,6 +158,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <ShellCtx.Provider
       value={{
         landlord: landlord.data,
+        landlordLoading: landlord.loading,
         flats: flats.data,
         flatsLoading: flats.loading,
         selectedFlat,
