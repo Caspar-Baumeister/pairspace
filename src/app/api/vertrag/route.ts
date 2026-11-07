@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
 import { toLocale } from "@/lib/i18n";
-import { getBilling, stripe, stripeConfigured, syncSubscription, toSubscription } from "@/lib/stripe";
+import { CANCEL_BUTTON_COMMENT, getBilling, stripe, stripeConfigured, syncSubscription, toSubscription } from "@/lib/stripe";
 
 /**
  * Cancellations (§ 312k BGB) and withdrawals (§ 356a BGB) from the public
@@ -85,7 +85,10 @@ async function cancelInStripe(d: ContractDeclaration, account: ContractRequestRe
     }
     const updated = current.cancel_at_period_end
       ? current
-      : await stripe().subscriptions.update(current.id, { cancel_at_period_end: true });
+      : await stripe().subscriptions.update(current.id, {
+          cancel_at_period_end: true,
+          cancellation_details: { comment: CANCEL_BUTTON_COMMENT },
+        });
     const after = await syncSubscription(account.uid, updated);
     return { status: "done", subscriptionId: updated.id, endsAt: after.currentPeriodEnd };
   } catch (e) {

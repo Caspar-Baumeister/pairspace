@@ -11,8 +11,12 @@
  *                           syncSubscription. The § 312f BGB confirmation with the
  *                           contract details and the full AGB and Widerrufsbelehrung
  *                           with the model form, because a link is no durable medium.
+ *   handleContractCancelled `cancellation` on the same document, noted by
+ *                           syncSubscription. Confirms a cancellation from the
+ *                           Stripe portal or from Caspar in Stripe with its end
+ *                           date, as the AGB promise for every way of cancelling.
  *
- * Both claim their mails in the document itself before sending (field `mail`),
+ * All claim their mails in the document itself before sending (field `mail`),
  * so a retried event never mails twice, and give the claim back when the send
  * fails. Clients cannot read or write either collection.
  */
@@ -28,6 +32,7 @@ import {
   formatDate,
   formatDateTime,
   pricePerPeriod,
+  type ContractCancellation,
   type ContractRecord,
   type ContractRequestRecord,
 } from "./shared/contract";
@@ -298,4 +303,66 @@ export async function handleContractCreated(subscriptionId: string): Promise<{ c
     return { confirmation: false };
   }
   return { confirmation: await sendClaimed(ref, "confirmationAt", confirmationMail(c)) };
+}
+
+/* ------------------------------------------------------------- cancellation */
+
+export function cancellationMail(c: ContractRecord, cancellation: ContractCancellation): Mail {
+  const locale = c.locale;
+  const t = translator(locale);
+  const end = formatDate(cancellation.endsAt, locale);
+  const details = [
+    {
+      label: t("Tarif", "Plan"),
+      value: `${contractLabel(locale)}, ${c.interval === "year" ? t("jährlich", "yearly") : t("monatlich", "monthly")}`,
+    },
+    { label: t("Kündigung eingegangen", "Cancellation received"), value: formatDateTime(cancellation.requestedAt, locale) },
+    { label: t("Vertragsende", "Contract ends"), value: end },
+    { label: t("Vertragsnummer", "Contract number"), value: c.subscriptionId },
+  ];
+  const inTrial = c.trialEndsAt != null && cancellation.endsAt <= c.trialEndsAt;
+
+  return {
+    to: c.email ?? "",
+    template: "contract-cancellation",
+    idempotencyKey: `contract-cancellation/${c.subscriptionId}/${cancellation.requestedAt}`,
+    subject: t("Deine Kündigung bei Pairspace ist bestätigt", "Your Pairspace cancellation is confirmed"),
+    heading: t("Dein Abo ist gekündigt", "Your subscription is cancelled"),
+    body: [
+      escapeHtml(c.name ? t(`Hallo ${c.name},`, `Hi ${c.name},`) : t("Hallo,", "Hi,")),
+      escapeHtml(
+        t(
+          `wir haben deine Kündigung erhalten. Dein Abo endet am ${end}. Bis dahin kannst du Pairspace wie gewohnt nutzen, danach wird nichts mehr abgebucht.`,
+          `We have received your cancellation. Your subscription ends on ${end}. You can use Pairspace as usual until then, after that nothing more is charged.`,
+        ) + (inTrial ? t(" Du hast in der Testphase gekündigt, du zahlst also nichts.", " You cancelled during the free trial, so you pay nothing.") : ""),
+      ),
+      lineList(details),
+      escapeHtml(
+        t(
+          `Doch weitermachen? Unter „Abo verwalten“ kannst du die Kündigung bis zum ${end} zurücknehmen.`,
+          `Changed your mind? Under “Manage subscription” you can undo the cancellation until ${end}.`,
+        ),
+      ),
+      escapeHtml(
+        t(
+          "Bewahre diese Mail als Nachweis auf. Hast du nicht selbst gekündigt? Dann antworte bitte kurz auf diese Mail.",
+          "Please keep this email as proof. Did you not cancel yourself? Then please reply to this email.",
+        ),
+      ),
+    ],
+    cta: { label: t("Zu deinem Abo", "Open your subscription"), url: siteUrl(locale, "/app/abo") },
+    footer: escapeHtml(`Pairspace, ${operatorLine(locale)}.`),
+  };
+}
+
+export async function handleContractCancelled(subscriptionId: string): Promise<{ cancellation: boolean }> {
+  const ref = contractRef(subscriptionId);
+  const c = (await ref.get()).data() as ContractRecord | undefined;
+  // The receipt from /kuendigen already confirmed this one with its end date.
+  if (!c?.cancellation || c.cancellation.source === "button") return { cancellation: false };
+  if (!c.email) {
+    console.warn("[contracts] no email for cancellation", subscriptionId);
+    return { cancellation: false };
+  }
+  return { cancellation: await sendClaimed(ref, "cancellationAt", cancellationMail(c, c.cancellation)) };
 }

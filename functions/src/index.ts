@@ -14,17 +14,19 @@
  *                        /kuendigen or /widerrufen, plus a notice to Caspar (contracts.ts)
  *   onContractCreated    § 312f confirmation with the full AGB and
  *                        Widerrufsbelehrung when a subscription starts (contracts.ts)
+ *   onContractUpdated    confirms a cancellation from the Stripe portal or from
+ *                        Caspar in Stripe with its end date (contracts.ts)
  *
  * The handlers are plain functions, scripts/test-triggers.mjs runs them
  * against the emulators.
  */
 import { setGlobalOptions } from "firebase-functions/v2";
-import { onDocumentCreated, onDocumentDeleted, onDocumentWritten } from "firebase-functions/v2/firestore";
+import { onDocumentCreated, onDocumentDeleted, onDocumentUpdated, onDocumentWritten } from "firebase-functions/v2/firestore";
 import { onRequest } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 
 import { handleApplicantDeleted, handleFlatDeleted } from "./cleanup";
-import { handleContractCreated, handleContractRequest } from "./contracts";
+import { handleContractCancelled, handleContractCreated, handleContractRequest } from "./contracts";
 import { send } from "./mail";
 import { handleApplicantWritten } from "./notify";
 import { escapeHtml } from "./templates";
@@ -107,5 +109,15 @@ export const onContractCreated = onDocumentCreated(
   { document: "contracts/{subscriptionId}", secrets: [RESEND_API_KEY] },
   async (event) => {
     await handleContractCreated(event.params.subscriptionId);
+  },
+);
+
+export const onContractUpdated = onDocumentUpdated(
+  { document: "contracts/{subscriptionId}", secrets: [RESEND_API_KEY] },
+  async (event) => {
+    const before = event.data?.before.get("cancellation") as { requestedAt?: number } | undefined;
+    const after = event.data?.after.get("cancellation") as { requestedAt?: number } | undefined;
+    if (!after || before?.requestedAt === after.requestedAt) return;
+    await handleContractCancelled(event.params.subscriptionId);
   },
 );

@@ -25,7 +25,7 @@ const { db, auth, bucket } = require("../functions/lib/admin.js");
 const { handleApplicantWritten, markerRef, DAY_MS } = require("../functions/lib/notify.js");
 const { handleApplicantDeleted, handleFlatDeleted } = require("../functions/lib/cleanup.js");
 const { unsubscribe } = require("../functions/lib/index.js");
-const { handleContractRequest, handleContractCreated, CASPAR, requestRef, contractRef } = require("../functions/lib/contracts.js");
+const { handleContractRequest, handleContractCreated, handleContractCancelled, CASPAR, requestRef, contractRef } = require("../functions/lib/contracts.js");
 const { agbDoc } = require("../functions/lib/shared/agb.js");
 const { widerrufDoc } = require("../functions/lib/shared/widerruf.js");
 const { formatDate, formatDateTime } = require("../functions/lib/shared/contract.js");
@@ -393,6 +393,43 @@ const subNo = `sub_trg_no_${run}`;
 await contractRef(subNo).set(contract(subNo, { email: null }));
 check("Ohne Mail keine Bestätigung", await handleContractCreated(subNo), { confirmation: false });
 
+/* ------------------------------------------------------ cancellation (portal) */
+
+console.log("\nKündigungsbestätigung nach dem Portal");
+const trialEnd = Date.now() + 2 * DAY_MS;
+const cancelledAt = Date.now() - 60_000;
+const subCx = `sub_trg_cx_${run}`;
+await contractRef(subCx).set(
+  contract(subCx, { trialEndsAt: trialEnd, cancellation: { requestedAt: cancelledAt, endsAt: trialEnd, source: "stripe" } }),
+);
+check("Function bestätigt die Kündigung", await handleContractCancelled(subCx), { cancellation: true });
+const cx = (await outbox()).find((m) => m.template === "contract-cancellation" && m.idempotencyKey === `contract-cancellation/${subCx}/${cancelledAt}`);
+check("an den Vermieter", [cx?.to, cx?.subject], [mail("landlord"), "Deine Kündigung bei Pairspace ist bestätigt"]);
+check(
+  "mit Enddatum, Eingang und Testphase",
+  [`Dein Abo endet am ${formatDate(trialEnd, "de")}`, `Kündigung eingegangen: ${formatDateTime(cancelledAt, "de")}`, `Vertragsnummer: ${subCx}`, "in der Testphase gekündigt, du zahlst also nichts", "Caspar Baumeister, Dernburgstraße 7, 14057 Berlin"].filter((l) => !cx?.text.includes(l)),
+  [],
+);
+check("Gleiches Event nochmal", await handleContractCancelled(subCx), { cancellation: false });
+
+const subCxPaid = `sub_trg_cxp_${run}`;
+const periodEnd = Date.now() + 20 * DAY_MS;
+await contractRef(subCxPaid).set(
+  contract(subCxPaid, { locale: "en", email: mail("cxen"), trialEndsAt: null, cancellation: { requestedAt: cancelledAt, endsAt: periodEnd, source: "stripe" } }),
+);
+await handleContractCancelled(subCxPaid);
+const cxEn = (await outbox()).find((m) => m.to === mail("cxen"));
+check(
+  "Englisch, nach der Testphase",
+  [cxEn?.subject, cxEn?.text.includes(`Your subscription ends on ${formatDate(periodEnd, "en")}`), cxEn?.text.includes("free trial")],
+  ["Your Pairspace cancellation is confirmed", true, false],
+);
+
+const subCxBtn = `sub_trg_cxb_${run}`;
+await contractRef(subCxBtn).set(contract(subCxBtn, { cancellation: { requestedAt: cancelledAt, endsAt: trialEnd, source: "button" } }));
+check("Über /kuendigen keine zweite Mail", await handleContractCancelled(subCxBtn), { cancellation: false });
+check("Ohne Kündigung keine Mail", await handleContractCancelled(subDe), { cancellation: false });
+
 console.log("\nBeispiel aus dem devOutbox:\n");
 const sample = (await outbox()).find((m) => m.to === mail("a"));
 console.log(`An: ${sample.to}\nBetreff: ${sample.subject}\n\n${sample.text}\n`);
@@ -403,7 +440,7 @@ console.log(`Betreff Vermieter: ${landlordMail.subject}\n\n${landlordMail.text}\
 await Promise.all((await outbox()).map((m) => db().doc(`devOutbox/${m.id}`).delete()));
 await Promise.all((await notices()).map((m) => db().doc(`devOutbox/${m.id}`).delete()));
 await Promise.all(requestIds.map((id) => requestRef(id).delete()));
-await Promise.all([subDe, subEn, subNo].map((id) => contractRef(id).delete()));
+await Promise.all([subDe, subEn, subNo, subCx, subCxPaid, subCxBtn].map((id) => contractRef(id).delete()));
 await bucket().file(`landlords/${owner.uid}/avatar-test.webp`).delete();
 await db().doc(`landlords/${owner.uid}`).delete();
 await auth().deleteUser(owner.uid);

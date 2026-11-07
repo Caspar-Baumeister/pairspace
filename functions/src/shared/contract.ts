@@ -73,8 +73,21 @@ export interface ContractRecord {
   createdAt: number;
   /** "Stand" of the AGB and Widerrufsbelehrung sent with the confirmation. */
   termsVersion: string;
-  /** Bookkeeping of onContractCreated. */
-  mail?: { confirmationAt?: number };
+  /**
+   * A cancellation the customer asked for, written by syncSubscription and
+   * removed again when they take it back. "button" came from /kuendigen,
+   * whose receipt already names the end date, "stripe" from the portal or
+   * from Caspar in Stripe.
+   */
+  cancellation?: ContractCancellation;
+  /** Bookkeeping of onContractCreated and onContractUpdated. */
+  mail?: { confirmationAt?: number; cancellationAt?: number };
+}
+
+export interface ContractCancellation {
+  requestedAt: number;
+  endsAt: number;
+  source: "button" | "stripe";
 }
 
 export const LIMITS = { name: 200, email: 200, reason: 2000, userAgent: 300 } as const;

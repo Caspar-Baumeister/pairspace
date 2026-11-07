@@ -1,6 +1,6 @@
 import "server-only";
 
-import { listPrice, type ContractRecord } from "@shared/contract";
+import { listPrice, type ContractCancellation, type ContractRecord } from "@shared/contract";
 import { LEGAL_UPDATED } from "@shared/operator";
 import { FieldValue } from "firebase-admin/firestore";
 import Stripe from "stripe";
@@ -24,6 +24,9 @@ export const LOOKUP_KEYS: Record<PlanInterval, string> = {
 
 /** Marks the portal configuration this app created, so it is found again. */
 export const APP_TAG = "pairspace";
+
+/** Marks cancellations from /kuendigen, whose receipt already names the end date. */
+export const CANCEL_BUTTON_COMMENT = "Pairspace /kuendigen";
 
 let client: Stripe | null = null;
 
@@ -166,7 +169,10 @@ export async function syncSubscription(uid: string, sub: Stripe.Subscription): P
 
   batch.set(billingRef(uid), billingPatch, { merge: true });
   await batch.commit();
-  if (running) await recordContract(uid, sub, subscription);
+  if (running) {
+    await recordContract(uid, sub, subscription);
+    await recordCancellation(sub, subscription);
+  }
   return subscription;
 }
 
@@ -209,5 +215,28 @@ export async function recordContract(uid: string, sub: Stripe.Subscription, subs
   } catch (e) {
     if ((e as { code?: number }).code === ALREADY_EXISTS) return false;
     throw e;
+  }
+}
+
+/**
+ * Notes a cancellation on the contract, whichever way it came: the Stripe
+ * portal, the /kuendigen button or Caspar in Stripe after a mail. The function
+ * onContractUpdated then confirms it by mail, as the AGB promise. Taking it
+ * back removes the note, so cancelling again mails again.
+ */
+async function recordCancellation(sub: Stripe.Subscription, subscription: Subscription): Promise<void> {
+  const ref = adminDb().doc(`contracts/${sub.id}`);
+  const snap = await ref.get();
+  if (!snap.exists) return;
+  const noted = snap.get("cancellation") as ContractCancellation | undefined;
+  if (subscription.cancelAtPeriodEnd && !noted) {
+    const cancellation: ContractCancellation = {
+      requestedAt: sub.canceled_at ? sub.canceled_at * 1000 : Date.now(),
+      endsAt: sub.cancel_at ? sub.cancel_at * 1000 : subscription.currentPeriodEnd,
+      source: sub.cancellation_details?.comment === CANCEL_BUTTON_COMMENT ? "button" : "stripe",
+    };
+    await ref.update({ cancellation });
+  } else if (!subscription.cancelAtPeriodEnd && noted) {
+    await ref.update({ cancellation: FieldValue.delete(), "mail.cancellationAt": FieldValue.delete() });
   }
 }
