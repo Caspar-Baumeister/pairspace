@@ -91,10 +91,13 @@ function startOrbit(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) {
   const scale = new Float32Array(count);
   const depth = new Float32Array(count);
   const radius = new Float32Array(count);
-  const items = [
-    ...PEOPLE.map((_, i) => ({ z: 0, node: i, link: -1 })),
-    ...LINKS.map((_, k) => ({ z: 0, node: -1, link: k })),
-  ];
+  const nodeItems = PEOPLE.map((_, i) => ({ z: 0, node: i, link: -1 }));
+  // Only the best group's links join the depth sort. All others lie behind the
+  // faces: a thin line jumping from behind a portrait to in front of it flickers.
+  const isBest = LINKS.map((l) => trio.has(l.a) && trio.has(l.b));
+  const bestItems = LINKS.flatMap((_, k) => (isBest[k] ? [{ z: 0, node: -1, link: k }] : []));
+  // Sorted in place on every frame, so depths are only ever written through the two lists above.
+  const items = [...nodeItems, ...bestItems];
   const pulses = still ? [] : Array.from({ length: 8 }, () => ({ link: 0, at: 1 + Math.random() * 2, speed: 0.5 }));
 
   let width = 0;
@@ -180,11 +183,12 @@ function startOrbit(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) {
       sy[i] = cy + y2 * s * unit;
       scale[i] = s;
       depth[i] = z2;
-      items[i].z = z2;
+      nodeItems[i].z = z2;
     }
-    for (let k = 0; k < LINKS.length; k++) {
+    for (const item of bestItems) {
       // Slightly behind both ends, a link never crosses over its own node.
-      items[count + k].z = (depth[LINKS[k].a] + depth[LINKS[k].b]) / 2 - 0.02;
+      const l = LINKS[item.link];
+      item.z = Math.min(depth[l.a], depth[l.b]) - 0.02;
     }
     items.sort((p, q) => p.z - q.z);
   }
@@ -200,32 +204,37 @@ function startOrbit(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) {
     if (hover !== null) focus = hover;
     const near = focus !== null ? NEIGHBORS[focus] : null;
 
+    const drawLink = (k: number) => {
+      const l = LINKS[k];
+      const fade = Math.min(popAt(l.a), popAt(l.b));
+      if (fade <= 0) return;
+      const fog = fogAt((depth[l.a] + depth[l.b]) / 2);
+      const touched = focus !== null && (l.a === focus || l.b === focus) && l.s >= 0.45;
+      const mean = (scale[l.a] + scale[l.b]) / 2;
+      ctx.beginPath();
+      ctx.moveTo(sx[l.a], sy[l.a]);
+      ctx.lineTo(sx[l.b], sy[l.b]);
+      if (touched && focusMix > 0) {
+        ctx.strokeStyle = ACCENT;
+        ctx.globalAlpha = (0.25 + 0.75 * fog) * focusMix;
+        ctx.lineWidth = (1 + 1.6 * l.s) * mean;
+      } else if (isBest[k]) {
+        ctx.strokeStyle = ACCENT;
+        ctx.globalAlpha = fade * (0.35 + 0.65 * fog) * (0.25 + 0.75 * lit) * (1 - 0.6 * focusMix);
+        ctx.lineWidth = (1.4 + 2 * lit) * mean;
+      } else {
+        ctx.strokeStyle = "#dadada";
+        ctx.globalAlpha = fade * fog * (0.1 + 0.34 * l.s) * (1 - 0.7 * focusMix);
+        ctx.lineWidth = (0.6 + 1.1 * l.s) * mean;
+      }
+      ctx.stroke();
+    };
+
+    for (let k = 0; k < LINKS.length; k++) if (!isBest[k]) drawLink(k);
+
     for (const item of items) {
       if (item.link >= 0) {
-        const l = LINKS[item.link];
-        const fade = Math.min(popAt(l.a), popAt(l.b));
-        if (fade <= 0) continue;
-        const fog = fogAt(item.z);
-        const best = trio.has(l.a) && trio.has(l.b);
-        const touched = focus !== null && (l.a === focus || l.b === focus) && l.s >= 0.45;
-        const mean = (scale[l.a] + scale[l.b]) / 2;
-        ctx.beginPath();
-        ctx.moveTo(sx[l.a], sy[l.a]);
-        ctx.lineTo(sx[l.b], sy[l.b]);
-        if (touched && focusMix > 0) {
-          ctx.strokeStyle = ACCENT;
-          ctx.globalAlpha = (0.25 + 0.75 * fog) * focusMix;
-          ctx.lineWidth = (1 + 1.6 * l.s) * mean;
-        } else if (best) {
-          ctx.strokeStyle = ACCENT;
-          ctx.globalAlpha = fade * (0.35 + 0.65 * fog) * (0.25 + 0.75 * lit) * (1 - 0.6 * focusMix);
-          ctx.lineWidth = (1.4 + 2 * lit) * mean;
-        } else {
-          ctx.strokeStyle = "#dadada";
-          ctx.globalAlpha = fade * fog * (0.1 + 0.34 * l.s) * (1 - 0.7 * focusMix);
-          ctx.lineWidth = (0.6 + 1.1 * l.s) * mean;
-        }
-        ctx.stroke();
+        drawLink(item.link);
         continue;
       }
 
@@ -266,12 +275,13 @@ function startOrbit(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) {
     ctx.lineWidth = 3;
     ctx.strokeStyle = "rgba(30,30,30,0.85)";
     ctx.fillStyle = "#dadada";
+    // One fixed size: a size that follows the depth would jump a whole pixel now and then.
+    ctx.font = `600 13px ${font}`;
     for (let i = 0; i < count; i++) {
       const inFocus = focus !== null && (i === focus || near!.has(i));
       const named = inFocus ? focusMix : trio.has(i) ? lit * (1 - focusMix) : 0;
       if (named <= 0 || popAt(i) <= 0) continue;
       ctx.globalAlpha = named * (0.45 + 0.55 * fogAt(depth[i]));
-      ctx.font = `600 ${Math.round(12 + 4 * Math.max(0, scale[i] - 1))}px ${font}`;
       ctx.strokeText(PEOPLE[i].name, sx[i], sy[i] + radius[i] + 5);
       ctx.fillText(PEOPLE[i].name, sx[i], sy[i] + radius[i] + 5);
     }
