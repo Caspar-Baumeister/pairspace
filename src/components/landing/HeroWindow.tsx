@@ -1,7 +1,7 @@
 "use client";
 
 import { BedDouble, ChevronDown, CircleHelp, CreditCard, House, Link2, Settings, Waypoints } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { LogoMark } from "@/components/ui/Logo";
 import { intlLocale } from "@/lib/i18n";
@@ -15,6 +15,7 @@ import {
   GROUPS,
   LINKS,
   MATCH_AT,
+  NEIGHBORS,
   PEOPLE,
   SPAWN_END,
   SPAWN_FRAME,
@@ -42,8 +43,9 @@ function mix(a: string, b: string, t: number) {
   return `rgb(${pa.map((v, k) => Math.round(v + (pb[k] - v) * t)).join(",")})`;
 }
 
-/** Plays the precomputed layout at 30 fps once, after a short pause for the headline. */
+/** Plays the precomputed layout at 30 fps once, starting when the window scrolls into view. */
 function usePlayback(delayMs: number) {
+  const ref = useRef<HTMLDivElement>(null);
   const [frame, setFrame] = useState(0);
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -58,10 +60,21 @@ function usePlayback(delayMs: number) {
       setFrame(f);
       if (f < FRAMES - 1) raf = requestAnimationFrame(tick);
     };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    const seen = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        seen.disconnect();
+        raf = requestAnimationFrame(tick);
+      },
+      { threshold: 0.35 },
+    );
+    if (ref.current) seen.observe(ref.current);
+    return () => {
+      seen.disconnect();
+      cancelAnimationFrame(raf);
+    };
   }, [delayMs]);
-  return frame;
+  return { frame, ref };
 }
 
 /** Bounding box of the settled graph, the camera ends there. */
@@ -82,31 +95,21 @@ function finalBox(xs: Float32Array[], ys: Float32Array[]) {
   return { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, w: x1 - x0 + 40, h: y1 - y0 + 40 };
 }
 
-const NEIGHBORS = (() => {
-  const map = PEOPLE.map(() => new Set<number>());
-  for (const l of LINKS) {
-    if (l.s < 0.45) continue;
-    map[l.a].add(l.b);
-    map[l.b].add(l.a);
-  }
-  return map;
-})();
-
 /**
- * The hero: the landlord app in a window, applicants popping into the graph
- * one by one like in the promo video, then the best group lights up.
+ * Below the hero: the landlord app in a window, applicants popping into the
+ * graph one by one like in the promo video, then the best group lights up.
  */
 export function HeroWindow() {
   const t = useT();
   const locale = useLocale();
   const num = (n: number) => n.toLocaleString(intlLocale(locale));
-  const frame = usePlayback(700);
+  const { frame, ref } = usePlayback(300);
   const spawned = PEOPLE.filter((_, i) => SPAWN_FRAME[i] <= frame).length;
   const ratings = Math.round(spawned * Math.max(0, spawned - 1) * 0.54);
   const match = easeOut(clamp01((frame - MATCH_AT) / 22));
 
   return (
-    <div className="overflow-hidden rounded-xl border border-line-strong bg-bg shadow-[0_40px_120px_rgba(0,0,0,0.55)]">
+    <div ref={ref} className="overflow-hidden rounded-xl border border-line-strong bg-bg shadow-[0_40px_120px_rgba(0,0,0,0.55)]">
       {/* Title bar: the flat switcher and the account, like the app's top bar */}
       <div className="flex h-10 items-center gap-3 border-b border-line bg-bg-2 px-3">
         <div className="flex gap-1.5">

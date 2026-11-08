@@ -126,6 +126,17 @@ export const LINKS: HeroLink[] = (() => {
   return out;
 })();
 
+/** Who lights up when someone is hovered: only the links that mean something. */
+export const NEIGHBORS = (() => {
+  const map = PEOPLE.map(() => new Set<number>());
+  for (const l of LINKS) {
+    if (l.s < 0.45) continue;
+    map[l.a].add(l.b);
+    map[l.b].add(l.a);
+  }
+  return map;
+})();
+
 /* ---------------------------------------------------------------- timing */
 
 export const FPS = 30;
@@ -227,4 +238,95 @@ let cached: ReturnType<typeof simulate> | null = null;
 /** Positions per frame, computed on first use. */
 export function layout() {
   return (cached ??= simulate());
+}
+
+/* ------------------------------------------------------------ orbit layout */
+
+/** One corner of a tetrahedron per camp, so the clusters sit apart from every side. */
+const CORNER: Record<Camp, [number, number, number]> = {
+  calm: [1, 1, 1],
+  social: [-1, -1, 1],
+  creative: [-1, 1, -1],
+  sporty: [1, -1, -1],
+};
+
+function simulate3d(): [number, number, number][] {
+  const rand = rng(23);
+  const n = PEOPLE.length;
+  const STEPS = 240;
+  // Flat x, y, z per person: this runs while the page hydrates, so no allocations in the loop.
+  const pos = new Float64Array(n * 3);
+  const vel = new Float64Array(n * 3);
+  const force = new Float64Array(n * 3);
+  const home = new Float64Array(n * 3);
+  PEOPLE.forEach((x, i) => {
+    for (let k = 0; k < 3; k++) {
+      home[i * 3 + k] = CORNER[x.camp][k] / Math.sqrt(3);
+      pos[i * 3 + k] = home[i * 3 + k] * 0.55 + (rand() - 0.5) * 0.5;
+    }
+  });
+
+  // The best group is pinned as a clean triangle on the surface, the others settle around it.
+  const pinned = new Uint8Array(n);
+  const best = CORNER[PEOPLE[TRIO[0]].camp].map((v) => v / Math.sqrt(3));
+  const side = [best[1], -best[0], 0].map((v) => v / Math.hypot(best[0], best[1]));
+  const up = [best[1] * side[2] - best[2] * side[1], best[2] * side[0] - best[0] * side[2], best[0] * side[1] - best[1] * side[0]];
+  TRIO.forEach((person, t) => {
+    const a = (t / 3) * Math.PI * 2 + Math.PI / 2;
+    pinned[person] = 1;
+    for (let k = 0; k < 3; k++) pos[person * 3 + k] = best[k] + (side[k] * Math.cos(a) + up[k] * Math.sin(a)) * 0.36;
+  });
+
+  for (let step = 0; step < STEPS; step++) {
+    force.fill(0);
+    for (let a = 0; a < n; a++) {
+      for (let b = a + 1; b < n; b++) {
+        const dx = pos[a * 3] - pos[b * 3];
+        const dy = pos[a * 3 + 1] - pos[b * 3 + 1];
+        const dz = pos[a * 3 + 2] - pos[b * 3 + 2];
+        const push = ((pinned[a] || pinned[b] ? 4 : 1) * 0.0022) / Math.max(dx * dx + dy * dy + dz * dz, 0.01);
+        force[a * 3] += dx * push;
+        force[a * 3 + 1] += dy * push;
+        force[a * 3 + 2] += dz * push;
+        force[b * 3] -= dx * push;
+        force[b * 3 + 1] -= dy * push;
+        force[b * 3 + 2] -= dz * push;
+      }
+    }
+    for (const l of LINKS) {
+      const dx = pos[l.b * 3] - pos[l.a * 3];
+      const dy = pos[l.b * 3 + 1] - pos[l.a * 3 + 1];
+      const dz = pos[l.b * 3 + 2] - pos[l.a * 3 + 2];
+      const len = Math.hypot(dx, dy, dz) || 1e-3;
+      const pull = ((len - (0.62 - 0.34 * l.s)) * (0.012 + 0.05 * l.s)) / len;
+      force[l.a * 3] += dx * pull;
+      force[l.a * 3 + 1] += dy * pull;
+      force[l.a * 3 + 2] += dz * pull;
+      force[l.b * 3] -= dx * pull;
+      force[l.b * 3 + 1] -= dy * pull;
+      force[l.b * 3 + 2] -= dz * pull;
+    }
+    for (let i = 0; i < n; i++) {
+      if (pinned[i]) continue;
+      const r = Math.hypot(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]);
+      for (let k = i * 3; k < i * 3 + 3; k++) {
+        force[k] += (home[k] * 0.5 - pos[k]) * 0.02;
+        // Nobody gets in front of the best group.
+        if (r > 0.8) force[k] -= pos[k] * (r - 0.8) * 0.5;
+        vel[k] = (vel[k] + force[k]) * 0.82;
+        pos[k] += vel[k] * (1 - step / STEPS);
+      }
+    }
+  }
+
+  let reach = 0;
+  for (let i = 0; i < n; i++) reach = Math.max(reach, Math.hypot(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]));
+  return PEOPLE.map((_, i) => [pos[i * 3] / reach, pos[i * 3 + 1] / reach, pos[i * 3 + 2] / reach]);
+}
+
+let cached3d: ReturnType<typeof simulate3d> | null = null;
+
+/** Positions in a unit ball for the turning graph in the hero, computed on first use. */
+export function orbitLayout() {
+  return (cached3d ??= simulate3d());
 }

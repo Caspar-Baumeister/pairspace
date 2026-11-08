@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { TrackedLink } from "@/components/analytics/TrackedLink";
 import { HeroWindow } from "@/components/landing/HeroWindow";
+import { OrbitGraph } from "@/components/landing/OrbitGraph";
 import { PhoneDemo } from "@/components/landing/PhoneDemo";
 import { PromoVideo } from "@/components/landing/PromoVideo";
 import { SiteFooter, SiteNav } from "@/components/site/SiteNav";
@@ -52,42 +53,48 @@ export default async function LandingPage({ params }: Props) {
     <div className="min-h-dvh overflow-x-clip">
       <SiteNav />
       <main>
-        <section className="mx-auto max-w-[1200px] px-4 pt-14 md:px-6 md:pt-24">
-          <h1 className="rise-in max-w-[920px] text-[38px] font-bold leading-[1.02] tracking-[-0.035em] text-ink sm:text-[62px] lg:text-[80px]">
-            {t("Vermiete an Leute, die zusammenpassen.", "Rent to people who fit together.")}
-          </h1>
-          <p
-            className="rise-in mt-6 max-w-[780px] text-[22px] leading-[1.22] tracking-[-0.015em] text-muted sm:text-[30px] lg:text-[36px]"
-            style={{ animationDelay: "120ms" }}
-          >
-            {t(
-              "Pairspace findet aus allen Bewerbern die beste WG für deine Zimmer.",
-              "Pairspace finds the best flatshare for your rooms among all your applicants.",
-            )}
-          </p>
-          <div className="rise-in mt-9 flex flex-wrap items-center gap-x-7 gap-y-3" style={{ animationDelay: "220ms" }}>
-            <TrackedLink
-              href={lp("/anmelden?neu=1")}
-              event="cta_clicked"
-              properties={{ location: "hero" }}
-              className="btn btn-cta h-14 rounded-xl px-7 text-[18px] font-semibold"
+        <section className="mx-auto grid max-w-[1200px] items-center gap-x-4 px-4 pt-14 md:px-6 md:pt-20 lg:min-h-[min(calc(100dvh-6.5rem),780px)] lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] lg:pt-0">
+          <div className="relative z-10">
+            <h1 className="rise-in text-[clamp(28px,8.9vw,38px)] font-bold leading-[1.02] tracking-[-0.035em] text-ink sm:text-[54px] md:text-[62px] lg:text-[52px] xl:text-[64px]">
+              {t("Vermiete an Leute,", "Rent to people")}
+              <br />
+              {t("die zusammenpassen.", "who fit together.")}
+            </h1>
+            <p
+              className="rise-in mt-6 max-w-[560px] text-[22px] leading-[1.25] tracking-[-0.015em] text-muted sm:text-[26px] lg:text-[22px] xl:text-[26px]"
+              style={{ animationDelay: "120ms" }}
             >
-              {trial}
-            </TrackedLink>
-            <a href="#video" className="text-[18px] font-medium text-accent hover:text-accent-hover">
-              {t("Video ansehen", "Watch the video")}
-            </a>
-          </div>
-
-          <div className="rise-in relative mt-14 md:mt-20" style={{ animationDelay: "380ms" }}>
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute -inset-x-24 -top-28 bottom-1/3 bg-[radial-gradient(ellipse_at_50%_40%,hsl(254_80%_68%/0.16),transparent_62%)]"
-            />
-            <div className="relative">
-              <HeroWindow />
+              {t(
+                "Pairspace findet aus allen Bewerbern die beste WG für deine Zimmer.",
+                "Pairspace finds the best flatshare for your rooms among all your applicants.",
+              )}
+            </p>
+            <div className="rise-in mt-9 flex flex-wrap items-center gap-x-7 gap-y-3" style={{ animationDelay: "220ms" }}>
+              <TrackedLink
+                href={lp("/anmelden?neu=1")}
+                event="cta_clicked"
+                properties={{ location: "hero" }}
+                className="btn btn-cta h-14 rounded-xl px-7 text-[18px] font-semibold"
+              >
+                {trial}
+              </TrackedLink>
+              <a href="#video" className="text-[18px] font-medium text-accent hover:text-accent-hover">
+                {t("Video ansehen", "Watch the video")}
+              </a>
             </div>
           </div>
+
+          <div className="rise-in relative -mx-4 mt-4 h-[400px] sm:h-[540px] md:-mx-6 lg:mx-0 lg:mt-0 lg:h-[600px] xl:-ml-10 xl:-mr-14 xl:h-[680px]" style={{ animationDelay: "300ms" }}>
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_50%,hsl(254_80%_68%/0.16),transparent_64%)]"
+            />
+            <OrbitGraph />
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-[1200px] px-4 pt-10 md:px-6 lg:pt-6">
+          <HeroWindow />
         </section>
 
         <section id="video" className="mx-auto max-w-[1000px] scroll-mt-20 px-4 pt-28 md:px-6 md:pt-40">
